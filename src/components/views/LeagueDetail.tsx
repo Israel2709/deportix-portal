@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useApi } from '@/lib/use-api';
 import type {
@@ -15,24 +16,16 @@ import { Card, DataTable, SectionTitle, type Column } from '@/components/ui/Ui';
 import { DataSection, ErrorState, LoadingState } from '@/components/states/States';
 import { formatDateTime } from '@/lib/format';
 import { sortMatchesByDateAsc } from '@/lib/match-sort';
+import { isLocalMatch, updateLocalMatch } from '@/lib/local-matches';
+import { addMatchFormPath } from '@/lib/match-form';
+import { applyMatchOverrides, saveMatchOverride, type MatchEditPatch } from '@/lib/match-edits';
+import { useLocalMatches } from '@/lib/use-local-matches';
+import { useMatchOverrides } from '@/lib/use-match-overrides';
+import { EditableMatchesTable } from '@/components/views/EditableMatchesTable';
 import { LeagueSeasonSidebar } from '@/components/layout/LeagueSeasonSidebar';
 import { LigaMxSeasonSection } from '@/components/views/LigaMxSeasonSection';
 import { LIGA_MX_LEAGUE_ID } from '@/lib/liga-mx';
 import { pickDefaultSeason } from '@/lib/seasons';
-
-const LIVE = new Set(['1H', '2H', 'HT', 'ET', 'BT', 'P', 'LIVE', 'INT']);
-
-function StatusBadge({ status }: { status: string | null }) {
-  if (!status) return <span className="text-slate-500">—</span>;
-  const live = LIVE.has(status);
-  const finished = status === 'FT' || status === 'AET' || status === 'PEN';
-  const cls = live
-    ? 'bg-red-500/20 text-red-300'
-    : finished
-      ? 'bg-slate-600/30 text-slate-300'
-      : 'bg-blue-500/20 text-blue-300';
-  return <span className={`rounded px-1.5 py-0.5 text-xs ${cls}`}>{status}</span>;
-}
 
 export function LeagueDetail({
   league: leagueId,
@@ -73,6 +66,14 @@ export function LeagueDetail({
   const matchesRes = useApi<ApiCollection<Match>>(matchesPath);
 
   const league = leagueRes.data?.data;
+  const { matches: localMatches, reload: reloadLocalMatches } = useLocalMatches(
+    league?.id ?? null,
+    selectedSeason?.id ?? null,
+  );
+  const { overrides, reload: reloadOverrides } = useMatchOverrides(
+    league?.id ?? null,
+    selectedSeason?.id ?? null,
+  );
 
   const standingColumns: Column<Standing>[] = [
     { key: 'team', header: 'Equipo', render: (r) => r.teamName ?? r.teamId ?? '—' },
@@ -93,27 +94,31 @@ export function LeagueDetail({
     },
   ];
 
-  const matchColumns: Column<Match>[] = [
-    { key: 'date', header: 'Fecha', render: (m) => formatDateTime(m.date) },
-    { key: 'status', header: 'Estado', render: (m) => <StatusBadge status={m.status} /> },
-    { key: 'home', header: 'Local', render: (m) => m.home.name ?? m.home.teamId ?? '—' },
-    {
-      key: 'score',
-      header: 'Marcador',
-      render: (m) =>
-        m.home.score != null || m.away.score != null
-          ? `${m.home.score ?? '-'} : ${m.away.score ?? '-'}`
-          : 'vs',
-      className: 'text-center',
-    },
-    { key: 'away', header: 'Visitante', render: (m) => m.away.name ?? m.away.teamId ?? '—' },
-    { key: 'round', header: 'Jornada', render: (m) => m.round ?? '—' },
-  ];
+  const sortedMatches = useMemo(() => {
+    const apiMatches = applyMatchOverrides(matchesRes.data?.data ?? [], overrides);
+    return sortMatchesByDateAsc([...apiMatches, ...localMatches]);
+  }, [matchesRes.data, localMatches, overrides]);
 
-  const sortedMatches = useMemo(
-    () => sortMatchesByDateAsc(matchesRes.data?.data ?? []),
-    [matchesRes.data],
-  );
+  function handleSaveMatchEdits(edits: Record<string, MatchEditPatch>): string | null {
+    if (!league?.id || !selectedSeason?.id) {
+      return 'No se pudo guardar los cambios.';
+    }
+
+    for (const [matchId, patch] of Object.entries(edits)) {
+      const match = sortedMatches.find((entry) => entry.id === matchId);
+      if (!match) continue;
+
+      if (isLocalMatch(match)) {
+        updateLocalMatch(league.id, selectedSeason.id, matchId, patch);
+      } else {
+        saveMatchOverride(league.id, selectedSeason.id, matchId, patch);
+      }
+    }
+
+    reloadLocalMatches();
+    reloadOverrides();
+    return null;
+  }
 
   if (leagueRes.loading) return <LoadingState label="Cargando liga…" />;
   if (leagueRes.error) return <ErrorState message={leagueRes.error} onRetry={leagueRes.reload} />;
@@ -179,20 +184,30 @@ export function LeagueDetail({
           )}
 
           <section>
-            <SectionTitle>Partidos</SectionTitle>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <SectionTitle>Partidos</SectionTitle>
+              {selectedYear !== null && (
+                <Link
+                  href={addMatchFormPath(leagueId, selectedYear)}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+                >
+                  Agregar partido
+                </Link>
+              )}
+            </div>
             <DataSection
               loading={matchesRes.loading}
               error={matchesRes.error}
-              isEmpty={(matchesRes.data?.data.length ?? 0) === 0}
+              isEmpty={sortedMatches.length === 0}
               onRetry={matchesRes.reload}
               emptyTitle="No hay partidos disponibles"
               emptyHint="Los partidos de la temporada seleccionada aún no se han cargado."
             >
-              <DataTable
-                columns={matchColumns}
-                rows={sortedMatches}
-                rowKey={(m) => m.id}
-                caption="Partidos de la liga"
+              <EditableMatchesTable
+                matches={sortedMatches}
+                overrides={overrides}
+                resetKey={`${league?.id ?? leagueId}:${selectedSeason?.id ?? 'none'}`}
+                onSave={handleSaveMatchEdits}
               />
             </DataSection>
           </section>
