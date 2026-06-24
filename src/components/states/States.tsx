@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export function LoadingState({ label = 'Loading…' }: { label?: string }) {
+export function LoadingState({ label = 'Cargando…' }: { label?: string }) {
   return (
     <div
       role="status"
@@ -18,7 +18,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
       role="alert"
       className="rounded-lg border border-red-900/60 bg-red-950/30 p-6 text-sm text-red-200"
     >
-      <p className="font-medium">Something went wrong</p>
+      <p className="font-medium">Algo salió mal</p>
       <p className="mt-1 text-red-300/80">{message}</p>
       {onRetry && (
         <button
@@ -26,7 +26,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
           onClick={onRetry}
           className="mt-3 rounded-md border border-red-800 px-3 py-1.5 text-red-100 hover:bg-red-900/40"
         >
-          Retry
+          Reintentar
         </button>
       )}
     </div>

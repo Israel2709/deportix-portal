@@ -17,13 +17,6 @@
   "engines": {
     "node": ">=20"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "unrs-resolver",
-      "sharp"
-    ]
-  },
   "dependencies": {
     "next": "^16.2.9",
     "react": "^19.2.7",

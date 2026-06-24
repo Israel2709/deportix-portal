@@ -12,7 +12,7 @@ describe('state components', () => {
     const onRetry = vi.fn();
     render(<ErrorState message="Boom" onRetry={onRetry} />);
     expect(screen.getByRole('alert')).toHaveTextContent('Boom');
-    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    fireEvent.click(screen.getByRole('button', { name: /reintentar/i }));
     expect(onRetry).toHaveBeenCalledOnce();
   });
 

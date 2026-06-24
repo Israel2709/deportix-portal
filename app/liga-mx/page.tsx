@@ -7,7 +7,7 @@ export default function Page() {
     <LeagueDetail
       league="262"
       title="Liga MX"
-      intro="Mexico's top flight. The available season, teams, calendar and standings shown below come straight from the API — only what is actually loaded appears."
+      intro="La máxima categoría de México. La temporada disponible, equipos, calendario y clasificación que aparecen abajo provienen directamente de la API — solo se muestra lo que está realmente cargado."
     />
   );
 }

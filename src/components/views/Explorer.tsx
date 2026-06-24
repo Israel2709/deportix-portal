@@ -34,7 +34,7 @@ export function Explorer() {
     try {
       setResult(await rawRequest(path));
     } catch (err) {
-      setFatal(err instanceof Error ? err.message : 'Request failed (network error).');
+      setFatal(err instanceof Error ? err.message : 'La solicitud falló (error de red).');
     } finally {
       setRunning(false);
     }
@@ -43,17 +43,17 @@ export function Explorer() {
   return (
     <div className="space-y-6">
       <section>
-        <h1 className="text-2xl font-bold text-slate-50">API Explorer</h1>
-        <p className="mt-2 max-w-2xl text-slate-400">
-          Run requests against the public Deportix API. Only the API&apos;s defined endpoints are
-          available — this is not an arbitrary HTTP console.{' '}
+        <h1 className="text-2xl font-bold text-slate-50">Explorador de API</h1>
+        <p className="mt-2 text-slate-400">
+          Ejecuta solicitudes contra la API pública de Deportix. Solo están disponibles los
+          endpoints definidos por la API — esto no es una consola HTTP arbitraria.{' '}
           <a
             href={`${API_BASE_URL}/docs`}
             target="_blank"
             rel="noreferrer"
             className="text-blue-400 hover:underline"
           >
-            Full reference ↗
+            Referencia completa ↗
           </a>
         </p>
       </section>
@@ -111,14 +111,14 @@ export function Explorer() {
             disabled={running || missingRequired}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {running ? 'Running…' : 'Run request'}
+            {running ? 'Ejecutando…' : 'Ejecutar solicitud'}
           </button>
           <code className="truncate rounded bg-slate-950 px-2 py-1 text-xs text-slate-400">
             GET {path}
           </code>
         </div>
         {missingRequired && (
-          <p className="mt-2 text-xs text-amber-400">Fill in the required path parameter(s).</p>
+          <p className="mt-2 text-xs text-amber-400">Completa los parámetros de ruta obligatorios.</p>
         )}
       </Card>
 
@@ -126,10 +126,10 @@ export function Explorer() {
 
       {result && (
         <section className="space-y-3">
-          <SectionTitle>Response</SectionTitle>
+          <SectionTitle>Respuesta</SectionTitle>
           <div className="flex flex-wrap gap-4 text-sm">
             <span>
-              Status:{' '}
+              Estado:{' '}
               <strong className={result.ok ? 'text-emerald-400' : 'text-red-400'}>
                 {result.status}
               </strong>

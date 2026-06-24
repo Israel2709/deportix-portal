@@ -4,18 +4,18 @@ import { Header } from '@/components/layout/Header';
 
 export const metadata = {
   title: 'Deportix API — Portal',
-  description: 'Consumer portal for the public Deportix API.',
+  description: 'Portal de consumo para la API pública de Deportix.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body className="min-h-screen antialiased">
         <Header />
-        <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
-        <footer className="mx-auto max-w-5xl px-4 py-8 text-xs text-slate-500">
-          Deportix API — public MVP. Data shown reflects what is currently loaded; coverage is
-          partial and evolving.
+        <main className="w-full px-4 py-8 sm:px-6 lg:px-8">{children}</main>
+        <footer className="w-full px-4 py-8 text-xs text-slate-500 sm:px-6 lg:px-8">
+          Deportix API — MVP público. Los datos mostrados reflejan lo que está cargado
+          actualmente; la cobertura es parcial y en evolución.
         </footer>
       </body>
     </html>

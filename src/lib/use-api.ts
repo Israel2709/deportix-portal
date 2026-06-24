@@ -41,7 +41,7 @@ export function useApi<T>(path: string | null): ApiState<T> & { reload: () => vo
         if (active) {
           setState({
             data: null,
-            error: err instanceof Error ? err.message : 'Request failed.',
+            error: err instanceof Error ? err.message : 'La solicitud falló.',
             loading: false,
           });
         }

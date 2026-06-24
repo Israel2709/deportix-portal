@@ -78,7 +78,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   if (!res.ok) {
     const errorBody = body as ApiErrorBody | null;
     throw new ApiClientError(
-      errorBody?.error?.message ?? `Request failed (${res.status})`,
+      errorBody?.error?.message ?? `La solicitud falló (${res.status})`,
       errorBody?.error?.code ?? 'HTTP_ERROR',
       res.status,
       errorBody?.error?.requestId,

@@ -17,7 +17,7 @@ describe('API Explorer', () => {
     ]);
 
     render(<Explorer />);
-    fireEvent.click(screen.getByRole('button', { name: /run request/i }));
+    fireEvent.click(screen.getByRole('button', { name: /ejecutar solicitud/i }));
 
     expect(await screen.findByText('200')).toBeInTheDocument();
     // Response JSON is rendered.
@@ -30,9 +30,9 @@ describe('API Explorer', () => {
     render(<Explorer />);
     // Switch to an endpoint that requires a path param.
     fireEvent.change(screen.getByLabelText('Endpoint'), { target: { value: 'league' } });
-    expect(screen.getByRole('button', { name: /run request/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /ejecutar solicitud/i })).toBeDisabled();
     fireEvent.change(screen.getByLabelText(/leagueId/i), { target: { value: '262' } });
-    expect(screen.getByRole('button', { name: /run request/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /ejecutar solicitud/i })).toBeEnabled();
   });
 
   it('only offers predefined endpoints (no arbitrary URL field)', () => {

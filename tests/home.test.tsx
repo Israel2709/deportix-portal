@@ -42,7 +42,7 @@ describe('HomeView', () => {
     expect(screen.getAllByRole('status').length).toBeGreaterThan(0);
   });
 
-  it('consumes data-status and renders sports + featured leagues', async () => {
+  it('consumes data-status and renders sports', async () => {
     installFetch([
       { match: '/v1/data-status', body: dataStatus },
       { match: '/v1/health', body: resource({ status: 'ok', apiVersion: 'v1', dataSourceConfigured: true, timestamp: '2026-06-23T00:00:00Z' }) },
@@ -50,11 +50,16 @@ describe('HomeView', () => {
     render(<HomeView />);
     expect(await screen.findByRole('heading', { name: 'Soccer' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'NFL' })).toBeInTheDocument();
-    // Liga MX appears as a featured league.
-    expect(screen.getByRole('heading', { name: 'Liga MX' })).toBeInTheDocument();
-    // Sports coverage badges (Available for soccer, No data loaded yet for NFL).
-    expect(screen.getAllByText('Available').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('No data loaded yet').length).toBeGreaterThan(0);
+    expect(screen.getByRole('heading', { name: 'Soccer' }).closest('a')).toHaveAttribute(
+      'href',
+      '/deportes/soccer',
+    );
+    expect(screen.getByRole('heading', { name: 'NFL' }).closest('a')).toHaveAttribute(
+      'href',
+      '/deportes/nfl',
+    );
+    expect(screen.getAllByText('Disponible').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Sin datos cargados aún').length).toBeGreaterThan(0);
   });
 
   it('shows an error state with retry when data-status fails', async () => {
@@ -64,14 +69,5 @@ describe('HomeView', () => {
     ]);
     render(<HomeView />);
     expect(await screen.findAllByRole('alert')).not.toHaveLength(0);
-  });
-
-  it('handles an empty featured-leagues list', async () => {
-    installFetch([
-      { match: '/v1/data-status', body: resource({ sports: [], leagues: [] }) },
-      { match: '/v1/health', body: resource({ status: 'ok', apiVersion: 'v1', dataSourceConfigured: true, timestamp: 't' }) },
-    ]);
-    render(<HomeView />);
-    expect(await screen.findByText('No featured leagues')).toBeInTheDocument();
   });
 });
