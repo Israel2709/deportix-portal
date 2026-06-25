@@ -19,13 +19,23 @@ const match: Match = {
 };
 
 describe('EditableMatchesTable', () => {
+  it('shows typed score values in the inputs', () => {
+    render(
+      <EditableMatchesTable matches={[match]} resetKey="lg_mx:se25" onSave={vi.fn(() => null)} />,
+    );
+
+    const homeInput = screen.getByLabelText(/Goles de América/i) as HTMLInputElement;
+    fireEvent.change(homeInput, { target: { value: '3' } });
+    expect(homeInput.value).toBe('3');
+    expect(homeInput.type).toBe('text');
+  });
+
   it('shows save actions after editing score and status', () => {
     const onSave = vi.fn(() => null);
 
     render(
       <EditableMatchesTable
         matches={[match]}
-        overrides={{}}
         resetKey="lg_mx:se25"
         onSave={onSave}
       />,

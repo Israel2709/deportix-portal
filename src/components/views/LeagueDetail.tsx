@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useApi } from '@/lib/use-api';
+import { useAllMatches } from '@/lib/use-all-matches';
 import type {
   ApiCollection,
   ApiResource,
@@ -18,9 +19,10 @@ import { formatDateTime } from '@/lib/format';
 import { sortMatchesByDateAsc } from '@/lib/match-sort';
 import { isLocalMatch, updateLocalMatch } from '@/lib/local-matches';
 import { addMatchFormPath } from '@/lib/match-form';
-import { applyMatchOverrides, saveMatchOverride, type MatchEditPatch } from '@/lib/match-edits';
+import { type MatchEditPatch } from '@/lib/match-edits';
+import { patchMatch } from '@/lib/match-api';
+import { ApiClientError } from '@/lib/api';
 import { useLocalMatches } from '@/lib/use-local-matches';
-import { useMatchOverrides } from '@/lib/use-match-overrides';
 import { applyTeamOverrides } from '@/lib/team-edits';
 import { useTeamOverrides } from '@/lib/use-team-overrides';
 import { EditableMatchesTable } from '@/components/views/EditableMatchesTable';
@@ -61,19 +63,12 @@ export function LeagueDetail({
 
   const standingsPath =
     selectedYear !== null ? `/v1/leagues/${id}/standings?season=${selectedYear}` : null;
-  const matchesPath =
-    selectedYear !== null ? `/v1/leagues/${id}/matches?season=${selectedYear}&pageSize=25` : null;
-
   const teamsRes = useApi<ApiCollection<Team>>(`/v1/leagues/${id}/teams?pageSize=100`);
   const standingsRes = useApi<ApiCollection<Standing>>(standingsPath);
-  const matchesRes = useApi<ApiCollection<Match>>(matchesPath);
+  const matchesRes = useAllMatches(leagueId, selectedYear);
 
   const league = leagueRes.data?.data;
   const { matches: localMatches, reload: reloadLocalMatches } = useLocalMatches(
-    league?.id ?? null,
-    selectedSeason?.id ?? null,
-  );
-  const { overrides, reload: reloadOverrides } = useMatchOverrides(
     league?.id ?? null,
     selectedSeason?.id ?? null,
   );
@@ -103,30 +98,40 @@ export function LeagueDetail({
     },
   ];
 
-  const sortedMatches = useMemo(() => {
-    const apiMatches = applyMatchOverrides(matchesRes.data?.data ?? [], overrides);
-    return sortMatchesByDateAsc([...apiMatches, ...localMatches]);
-  }, [matchesRes.data, localMatches, overrides]);
+  const sortedMatches = useMemo(
+    () => sortMatchesByDateAsc([...matchesRes.data, ...localMatches]),
+    [matchesRes.data, localMatches],
+  );
 
-  function handleSaveMatchEdits(edits: Record<string, MatchEditPatch>): string | null {
+  async function handleSaveMatchEdits(
+    edits: Record<string, MatchEditPatch>,
+  ): Promise<string | null> {
     if (!league?.id || !selectedSeason?.id) {
       return 'No se pudo guardar los cambios.';
     }
 
-    for (const [matchId, patch] of Object.entries(edits)) {
-      const match = sortedMatches.find((entry) => entry.id === matchId);
-      if (!match) continue;
+    try {
+      const updatedMatches: Match[] = [];
 
-      if (isLocalMatch(match)) {
-        updateLocalMatch(league.id, selectedSeason.id, matchId, patch);
-      } else {
-        saveMatchOverride(league.id, selectedSeason.id, matchId, patch);
+      for (const [matchId, patch] of Object.entries(edits)) {
+        const match = sortedMatches.find((entry) => entry.id === matchId);
+        if (!match) continue;
+
+        if (isLocalMatch(match)) {
+          updateLocalMatch(league.id, selectedSeason.id, matchId, patch);
+        } else {
+          updatedMatches.push(await patchMatch(leagueId, matchId, patch));
+        }
       }
-    }
 
-    reloadLocalMatches();
-    reloadOverrides();
-    return null;
+      reloadLocalMatches();
+      matchesRes.applyUpdates(updatedMatches);
+      matchesRes.reload();
+      return null;
+    } catch (err) {
+      if (err instanceof ApiClientError) return err.message;
+      return 'No se pudo guardar los cambios.';
+    }
   }
 
   if (leagueRes.loading) return <LoadingState label="Cargando liga…" />;
@@ -185,7 +190,7 @@ export function LeagueDetail({
         <div className="min-w-0 flex-1 space-y-8">
           {isLigaMx && selectedYear !== null ? (
             <div className="grid gap-6 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] lg:items-start">
-              <LigaMxSeasonSection leagueId={leagueId} year={selectedYear} />
+              <LigaMxSeasonSection year={selectedYear} matches={sortedMatches} />
               {standingsSection}
             </div>
           ) : (
@@ -214,7 +219,6 @@ export function LeagueDetail({
             >
               <EditableMatchesTable
                 matches={sortedMatches}
-                overrides={overrides}
                 resetKey={`${league?.id ?? leagueId}:${selectedSeason?.id ?? 'none'}`}
                 onSave={handleSaveMatchEdits}
               />

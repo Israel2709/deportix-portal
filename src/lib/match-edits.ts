@@ -106,6 +106,11 @@ export function parseScoreInput(value: string): number | null | 'invalid' {
   return parsed;
 }
 
+/** Keeps only non-negative integer characters while the user types. */
+export function sanitizeScoreInput(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
 export function draftToPatch(draft: MatchRowDraft): MatchEditPatch | string {
   const homeScore = parseScoreInput(draft.homeScore);
   if (homeScore === 'invalid') return 'El marcador local debe ser un entero mayor o igual a 0.';
@@ -131,4 +136,15 @@ export function hasMatchOverride(
   matchId: string,
 ): boolean {
   return matchId in overrides;
+}
+
+/** Maps a portal edit patch to the PATCH /v1/leagues/{leagueId}/matches/{matchId} body. */
+export function matchEditPatchToApiBody(patch: MatchEditPatch): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+
+  if (patch.status !== undefined) body.status = patch.status;
+  if (patch.homeScore !== undefined) body.home = { score: patch.homeScore };
+  if (patch.awayScore !== undefined) body.away = { score: patch.awayScore };
+
+  return body;
 }

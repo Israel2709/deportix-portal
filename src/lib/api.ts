@@ -46,6 +46,42 @@ function now(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
+/** Bypass browser/CDN caches so ETag revalidation cannot return stale 304 responses. */
+async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+
+  const res = await fetch(apiUrl(path), {
+    ...init,
+    headers,
+    cache: 'no-store',
+  });
+
+  if (res.status !== 304) return res;
+
+  // Belt-and-suspenders: retry once if a cache still returns 304 with an empty body.
+  return fetch(apiUrl(path), {
+    ...init,
+    headers,
+    cache: 'reload',
+  });
+}
+
+async function readJsonResponse(res: Response): Promise<unknown> {
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+function throwApiError(res: Response, body: unknown): never {
+  const errorBody = body as ApiErrorBody | null;
+  throw new ApiClientError(
+    errorBody?.error?.message ?? `La solicitud falló (${res.status})`,
+    errorBody?.error?.code ?? 'HTTP_ERROR',
+    res.status,
+    errorBody?.error?.requestId,
+  );
+}
+
 /**
  * Low-level request used by the API Explorer. Never throws on HTTP errors — returns status,
  * timing, a curated set of non-sensitive headers, and the parsed body so the UI can display
@@ -53,7 +89,7 @@ function now(): number {
  */
 export async function rawRequest(path: string): Promise<RawResponse> {
   const start = now();
-  const res = await fetch(apiUrl(path), { headers: { Accept: 'application/json' } });
+  const res = await apiFetch(path);
   const durationMs = Math.round(now() - start);
   const text = await res.text();
   let body: unknown = null;
@@ -72,19 +108,22 @@ export async function rawRequest(path: string): Promise<RawResponse> {
 
 /** Typed GET that throws an ApiClientError on a non-2xx response. */
 export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(apiUrl(path), { headers: { Accept: 'application/json' } });
-  const text = await res.text();
-  const body = text ? JSON.parse(text) : null;
-  if (!res.ok) {
-    const errorBody = body as ApiErrorBody | null;
-    throw new ApiClientError(
-      errorBody?.error?.message ?? `La solicitud falló (${res.status})`,
-      errorBody?.error?.code ?? 'HTTP_ERROR',
-      res.status,
-      errorBody?.error?.requestId,
-    );
-  }
+  const res = await apiFetch(path);
+  const body = await readJsonResponse(res);
+  if (!res.ok) throwApiError(res, body);
   return body as T;
+}
+
+/** Typed PATCH that throws an ApiClientError on a non-2xx response. */
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  const res = await apiFetch(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const parsed = await readJsonResponse(res);
+  if (!res.ok) throwApiError(res, parsed);
+  return parsed as T;
 }
 
 /** Endpoints the API Explorer is allowed to call (no arbitrary URLs). */

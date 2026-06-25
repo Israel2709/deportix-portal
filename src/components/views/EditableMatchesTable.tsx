@@ -4,33 +4,33 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Match } from '@/lib/types';
 import {
   draftToPatch,
-  hasMatchOverride,
   isDraftDirty,
   matchToDraft,
+  sanitizeScoreInput,
   type MatchEditPatch,
   type MatchRowDraft,
 } from '@/lib/match-edits';
 import { formatMatchStatusOption, MATCH_STATUS_OPTIONS } from '@/lib/match-form';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatDateTimeShort } from '@/lib/format';
 import { isLocalMatch } from '@/lib/local-matches';
 
 const inputClassName =
   'w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100';
-const scoreInputClassName = `${inputClassName} w-12 text-center`;
+const scoreInputClassName =
+  'w-10 min-w-10 rounded border border-slate-700 bg-slate-950 px-1 py-1 text-center text-sm tabular-nums text-slate-100';
 
 export function EditableMatchesTable({
   matches,
-  overrides,
   resetKey,
   onSave,
 }: {
   matches: Match[];
-  overrides: Record<string, MatchEditPatch>;
   resetKey: string;
-  onSave: (edits: Record<string, MatchEditPatch>) => string | null;
+  onSave: (edits: Record<string, MatchEditPatch>) => string | null | Promise<string | null>;
 }) {
   const [drafts, setDrafts] = useState<Record<string, MatchRowDraft>>({});
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setDrafts({});
@@ -61,7 +61,7 @@ export function EditableMatchesTable({
     setError(null);
   }
 
-  function handleSave() {
+  async function handleSave() {
     const edits: Record<string, MatchEditPatch> = {};
 
     for (const matchId of dirtyMatchIds) {
@@ -74,14 +74,19 @@ export function EditableMatchesTable({
       edits[matchId] = patchOrError;
     }
 
-    const saveError = onSave(edits);
-    if (saveError) {
-      setError(saveError);
-      return;
-    }
+    setSaving(true);
+    try {
+      const saveError = await onSave(edits);
+      if (saveError) {
+        setError(saveError);
+        return;
+      }
 
-    setDrafts({});
-    setError(null);
+      setDrafts({});
+      setError(null);
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (matches.length === 0) return null;
@@ -98,14 +103,16 @@ export function EditableMatchesTable({
           <button
             type="button"
             onClick={handleSave}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+            disabled={saving}
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
           >
-            Guardar cambios
+            {saving ? 'Guardando…' : 'Guardar cambios'}
           </button>
           <button
             type="button"
             onClick={handleDiscard}
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-900"
+            disabled={saving}
+            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-900 disabled:opacity-60"
           >
             Descartar
           </button>
@@ -125,10 +132,10 @@ export function EditableMatchesTable({
               <th scope="col" className="px-3 py-2 font-medium">
                 Estado
               </th>
-              <th scope="col" className="px-3 py-2 font-medium">
+              <th scope="col" className="px-3 py-2 text-right font-medium">
                 Local
               </th>
-              <th scope="col" className="px-3 py-2 text-center font-medium">
+              <th scope="col" className="whitespace-nowrap px-2 py-2 text-center font-medium">
                 Marcador
               </th>
               <th scope="col" className="px-3 py-2 font-medium">
@@ -137,13 +144,15 @@ export function EditableMatchesTable({
               <th scope="col" className="px-3 py-2 font-medium">
                 Jornada
               </th>
+              <th scope="col" className="w-0 whitespace-nowrap px-3 py-2 font-medium">
+                Modificado
+              </th>
             </tr>
           </thead>
           <tbody>
             {matches.map((match) => {
               const draft = getDraft(match);
               const dirty = drafts[match.id] && isDraftDirty(match, draft);
-              const edited = dirty || hasMatchOverride(overrides, match.id);
 
               return (
                 <tr
@@ -158,11 +167,6 @@ export function EditableMatchesTable({
                           local
                         </span>
                       )}
-                      {edited && !isLocalMatch(match) && (
-                        <span className="ml-2 rounded bg-blue-500/15 px-1.5 py-0.5 text-xs text-blue-200">
-                          editado
-                        </span>
-                      )}
                     </span>
                   </td>
                   <td className="px-3 py-2">
@@ -171,6 +175,7 @@ export function EditableMatchesTable({
                       value={draft.status}
                       onChange={(event) => updateDraft(match.id, match, { status: event.target.value })}
                       className={inputClassName}
+                      disabled={saving}
                     >
                       {MATCH_STATUS_OPTIONS.map((status) => (
                         <option key={status} value={status}>
@@ -179,38 +184,49 @@ export function EditableMatchesTable({
                       ))}
                     </select>
                   </td>
-                  <td className="px-3 py-2">{match.home.name ?? match.home.teamId ?? '—'}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-2 text-right">{match.home.name ?? match.home.teamId ?? '—'}</td>
+                  <td className="whitespace-nowrap px-2 py-2">
                     <div className="flex items-center justify-center gap-1">
                       <input
-                        type="number"
-                        min="0"
-                        step="1"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        autoComplete="off"
                         aria-label={`Goles de ${match.home.name ?? 'local'}`}
                         value={draft.homeScore}
                         onChange={(event) =>
-                          updateDraft(match.id, match, { homeScore: event.target.value })
+                          updateDraft(match.id, match, {
+                            homeScore: sanitizeScoreInput(event.target.value),
+                          })
                         }
                         className={scoreInputClassName}
-                        placeholder="-"
+                        placeholder="–"
+                        disabled={saving}
                       />
                       <span className="text-slate-500">:</span>
                       <input
-                        type="number"
-                        min="0"
-                        step="1"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        autoComplete="off"
                         aria-label={`Goles de ${match.away.name ?? 'visitante'}`}
                         value={draft.awayScore}
                         onChange={(event) =>
-                          updateDraft(match.id, match, { awayScore: event.target.value })
+                          updateDraft(match.id, match, {
+                            awayScore: sanitizeScoreInput(event.target.value),
+                          })
                         }
                         className={scoreInputClassName}
-                        placeholder="-"
+                        placeholder="–"
+                        disabled={saving}
                       />
                     </div>
                   </td>
                   <td className="px-3 py-2">{match.away.name ?? match.away.teamId ?? '—'}</td>
                   <td className="px-3 py-2">{match.round ?? '—'}</td>
+                  <td className="w-0 whitespace-nowrap px-3 py-2 text-slate-400">
+                    {formatDateTimeShort(match.updatedAt)}
+                  </td>
                 </tr>
               );
             })}

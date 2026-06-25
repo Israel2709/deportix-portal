@@ -4,6 +4,7 @@ import {
   applyMatchPatch,
   draftToPatch,
   isDraftDirty,
+  matchEditPatchToApiBody,
   matchToDraft,
   readMatchOverrides,
   saveMatchOverride,
@@ -77,6 +78,20 @@ describe('match edits', () => {
       status: 'FT',
       homeScore: 2,
       awayScore: 1,
+    });
+  });
+
+  it('maps edit patches to the API PATCH body', () => {
+    expect(
+      matchEditPatchToApiBody({
+        status: 'FT',
+        homeScore: 2,
+        awayScore: 1,
+      }),
+    ).toEqual({
+      status: 'FT',
+      home: { score: 2 },
+      away: { score: 1 },
     });
   });
 
