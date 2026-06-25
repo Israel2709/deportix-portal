@@ -12,7 +12,7 @@ import type {
   Standing,
   Team,
 } from '@/lib/types';
-import { Card, DataTable, SectionTitle, type Column } from '@/components/ui/Ui';
+import { DataTable, SectionTitle, type Column } from '@/components/ui/Ui';
 import { DataSection, ErrorState, LoadingState } from '@/components/states/States';
 import { formatDateTime } from '@/lib/format';
 import { sortMatchesByDateAsc } from '@/lib/match-sort';
@@ -21,7 +21,10 @@ import { addMatchFormPath } from '@/lib/match-form';
 import { applyMatchOverrides, saveMatchOverride, type MatchEditPatch } from '@/lib/match-edits';
 import { useLocalMatches } from '@/lib/use-local-matches';
 import { useMatchOverrides } from '@/lib/use-match-overrides';
+import { applyTeamOverrides } from '@/lib/team-edits';
+import { useTeamOverrides } from '@/lib/use-team-overrides';
 import { EditableMatchesTable } from '@/components/views/EditableMatchesTable';
+import { TeamMiniCard } from '@/components/teams/TeamMiniCard';
 import { LeagueSeasonSidebar } from '@/components/layout/LeagueSeasonSidebar';
 import { LigaMxSeasonSection } from '@/components/views/LigaMxSeasonSection';
 import { LIGA_MX_LEAGUE_ID } from '@/lib/liga-mx';
@@ -73,6 +76,12 @@ export function LeagueDetail({
   const { overrides, reload: reloadOverrides } = useMatchOverrides(
     league?.id ?? null,
     selectedSeason?.id ?? null,
+  );
+  const { overrides: teamOverrides } = useTeamOverrides();
+
+  const teamsWithOverrides = useMemo(
+    () => applyTeamOverrides(teamsRes.data?.data ?? [], teamOverrides),
+    [teamsRes.data, teamOverrides],
   );
 
   const standingColumns: Column<Standing>[] = [
@@ -217,25 +226,19 @@ export function LeagueDetail({
             <DataSection
               loading={teamsRes.loading}
               error={teamsRes.error}
-              isEmpty={(teamsRes.data?.data.length ?? 0) === 0}
+              isEmpty={teamsWithOverrides.length === 0}
               onRetry={teamsRes.reload}
               emptyTitle="No hay equipos disponibles"
               emptyHint="Las plantillas de equipos de esta liga aún no se han cargado."
             >
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {teamsRes.data?.data.map((team) => (
-                  <Card key={team.id} className="flex items-center gap-3 p-3">
-                    {team.logo && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={team.logo} alt="" className="h-8 w-8 object-contain" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-slate-100">{team.name ?? team.id}</p>
-                      {team.venue?.name && (
-                        <p className="truncate text-xs text-slate-400">{team.venue.name}</p>
-                      )}
-                    </div>
-                  </Card>
+                {teamsWithOverrides.map((team) => (
+                  <TeamMiniCard
+                    key={team.id}
+                    team={team}
+                    leagueId={leagueId}
+                    hasOverride={team.id in teamOverrides}
+                  />
                 ))}
               </div>
             </DataSection>

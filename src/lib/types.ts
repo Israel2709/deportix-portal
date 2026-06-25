@@ -92,6 +92,8 @@ export interface Team {
   code: string | null;
   country: string | null;
   logo: string | null;
+  altName: string | null;
+  altLogo: string | null;
   city: string | null;
   conference: string | null;
   division: string | null;
