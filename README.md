@@ -28,11 +28,19 @@ pnpm dev                             # http://localhost:3001
 
 Run the API (`../deportix-api`, port 3000) alongside it so the portal has data to show.
 
+### Acceso desde otro dispositivo en la red
+
+1. Levanta la API y el portal en este equipo (`pnpm dev` en ambos repos).
+2. Anota la IP que muestra Next.js en la línea `Network:` (ej. `http://192.168.x.x:3001`).
+3. Desde el otro dispositivo (misma Wi‑Fi), abre esa URL. Las peticiones a la API irán a
+   `http://<misma-ip>:3000` automáticamente.
+4. Si no carga, revisa el firewall de macOS para Node en los puertos 3000 y 3001.
+
 ## Scripts
 
 | Script | Description |
 | --- | --- |
-| `pnpm dev` | Dev server (port 3001). |
+| `pnpm dev` | Dev server (port 3001, all interfaces — LAN via `Network:` URL). |
 | `pnpm build` / `pnpm start` | Production build / serve. |
 | `pnpm lint` / `pnpm typecheck` | ESLint / `tsc --noEmit`. |
 | `pnpm test` | Vitest + Testing Library (states, Liga MX, NFL, data-status, Explorer). Network mocked — never hits Firestore. |
@@ -42,6 +50,8 @@ Run the API (`../deportix-api`, port 3000) alongside it so the portal has data t
 ```env
 # Base URL of the public Deportix API. No secrets belong here.
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
+# Port used for LAN auto-resolution when base URL is localhost (default 3000).
+NEXT_PUBLIC_API_PORT=3000
 ```
 
 ## Architecture notes

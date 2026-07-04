@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { API_BASE_URL } from '@/lib/api';
+import { getApiBaseUrl } from '@/lib/api';
 
 const NAV = [
   { href: '/', label: 'Inicio' },
@@ -36,7 +36,7 @@ export function Header() {
             );
           })}
           <a
-            href={`${API_BASE_URL}/docs`}
+            href={`${getApiBaseUrl()}/docs`}
             target="_blank"
             rel="noreferrer"
             className="rounded-md px-3 py-1.5 text-slate-300 hover:bg-slate-800"

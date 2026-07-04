@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import {
-  API_BASE_URL,
+  getApiBaseUrl,
   EXPLORER_ENDPOINTS,
   buildPath,
   rawRequest,
@@ -48,7 +48,7 @@ export function Explorer() {
           Ejecuta solicitudes contra la API pública de Deportix. Solo están disponibles los
           endpoints definidos por la API — esto no es una consola HTTP arbitraria.{' '}
           <a
-            href={`${API_BASE_URL}/docs`}
+            href={`${getApiBaseUrl()}/docs`}
             target="_blank"
             rel="noreferrer"
             className="text-blue-400 hover:underline"

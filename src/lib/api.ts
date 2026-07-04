@@ -1,12 +1,34 @@
 import type { ApiErrorBody } from './types';
 
+const DEFAULT_API_PORT = process.env.NEXT_PUBLIC_API_PORT ?? '3000';
+
+function envApiBaseUrl(): string {
+  return (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
+}
+
+function isLocalhostUrl(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return hostname === 'localhost' || hostname === '127.0.0.1';
+  } catch {
+    return url.includes('localhost') || url.includes('127.0.0.1');
+  }
+}
+
 /**
- * Thin client for the public Deportix API. The portal talks ONLY to this base URL and
- * never to Firebase. The base URL is a build-time public env var.
+ * Resolves the Deportix API base URL. In the browser, when the env points at localhost,
+ * uses the same hostname as the portal + NEXT_PUBLIC_API_PORT so LAN access works without
+ * hardcoding the machine IP. Production overrides (non-localhost env) are always respected.
  */
-export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000'
-).replace(/\/+$/, '');
+export function getApiBaseUrl(): string {
+  const fromEnv = envApiBaseUrl();
+  if (typeof window === 'undefined') return fromEnv;
+  if (!isLocalhostUrl(fromEnv)) return fromEnv;
+  return `${window.location.protocol}//${window.location.hostname}:${DEFAULT_API_PORT}`;
+}
+
+/** @deprecated Prefer getApiBaseUrl() — kept for modules that read a constant at import time. */
+export const API_BASE_URL = envApiBaseUrl();
 
 export class ApiClientError extends Error {
   readonly code: string;
@@ -23,7 +45,7 @@ export class ApiClientError extends Error {
 }
 
 export function apiUrl(path: string): string {
-  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  return `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 export interface RawResponse {

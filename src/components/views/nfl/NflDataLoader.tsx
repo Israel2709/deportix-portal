@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { getApiBaseUrl } from '@/lib/api';
 import { Card } from '@/components/ui/Ui';
 import { NflCountrySection } from './NflCountrySection';
 import { NflGameSection } from './NflGameSection';
@@ -37,12 +37,12 @@ export function NflDataLoader() {
         <p className="mt-2 text-xs text-slate-400">
           Referencia OpenAPI:{' '}
           <a
-            href={`${API_BASE_URL}/docs`}
+            href={`${getApiBaseUrl()}/docs`}
             target="_blank"
             rel="noreferrer"
             className="text-blue-400 hover:underline"
           >
-            {API_BASE_URL}/docs
+            {getApiBaseUrl()}/docs
           </a>{' '}
           (tag BFF NFL)
         </p>
