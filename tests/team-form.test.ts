@@ -31,15 +31,15 @@ describe('team-form', () => {
     expect(teamFormFieldsForSport('soccer')).toContain('altName');
   });
 
-  it('includes nfl-specific fields', () => {
-    const fields = teamFormFieldsForSport('nfl');
+  it('includes american-football-specific fields', () => {
+    const fields = teamFormFieldsForSport('american-football');
     expect(fields).toContain('conference');
     expect(fields).not.toContain('venueName');
   });
 
-  it('validates required nfl fields', () => {
-    const values = teamToFormValues({ ...soccerTeam, sport: 'nfl' });
-    expect(validateTeamForm(values, 'nfl')).toMatch(/ciudad/i);
+  it('validates required american-football fields', () => {
+    const values = teamToFormValues({ ...soccerTeam, sport: 'american-football' });
+    expect(validateTeamForm(values, 'american-football')).toMatch(/ciudad/i);
   });
 
   it('builds patch with alt fields', () => {

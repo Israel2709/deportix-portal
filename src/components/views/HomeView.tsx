@@ -29,7 +29,7 @@ export function HomeView() {
           <Link href="/liga-mx" className="rounded-md bg-blue-500/20 px-3 py-1.5 text-blue-200 hover:bg-blue-500/30">
             Liga MX
           </Link>
-          <Link href="/nfl" className="rounded-md bg-slate-800 px-3 py-1.5 text-slate-200 hover:bg-slate-700">
+          <Link href="/american-football" className="rounded-md bg-slate-800 px-3 py-1.5 text-slate-200 hover:bg-slate-700">
             NFL
           </Link>
           <Link href="/explorer" className="rounded-md bg-slate-800 px-3 py-1.5 text-slate-200 hover:bg-slate-700">

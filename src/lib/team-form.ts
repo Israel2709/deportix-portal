@@ -20,7 +20,7 @@ export type TeamFormField = keyof TeamFormValues;
 
 const COMMON_FIELDS: TeamFormField[] = ['name', 'altName', 'logo', 'altLogo'];
 const SOCCER_FIELDS: TeamFormField[] = ['code', 'country', 'venueName', 'venueCity', 'venueCapacity'];
-const NFL_FIELDS: TeamFormField[] = ['code', 'city', 'conference', 'division'];
+const AMERICAN_FOOTBALL_FIELDS: TeamFormField[] = ['code', 'city', 'conference', 'division'];
 const GENERIC_FIELDS: TeamFormField[] = ['code'];
 
 export const TEAM_FORM_FIELD_LABELS: Record<TeamFormField, string> = {
@@ -40,7 +40,7 @@ export const TEAM_FORM_FIELD_LABELS: Record<TeamFormField, string> = {
 
 export function teamFormFieldsForSport(sport: string | null): TeamFormField[] {
   if (sport === 'soccer') return [...COMMON_FIELDS, ...SOCCER_FIELDS];
-  if (sport === 'nfl') return [...COMMON_FIELDS, ...NFL_FIELDS];
+  if (sport === 'american-football') return [...COMMON_FIELDS, ...AMERICAN_FOOTBALL_FIELDS];
   return [...COMMON_FIELDS, ...GENERIC_FIELDS];
 }
 
@@ -82,7 +82,7 @@ export function validateTeamForm(values: TeamFormValues, sport: string | null): 
     return 'La capacidad del estadio debe ser un entero mayor o igual a 0.';
   }
 
-  if (sport === 'nfl') {
+  if (sport === 'american-football') {
     if (!values.city.trim()) return 'La ciudad es obligatoria para equipos NFL.';
     if (!values.conference.trim()) return 'La conferencia es obligatoria para equipos NFL.';
     if (!values.division.trim()) return 'La división es obligatoria para equipos NFL.';
@@ -114,7 +114,7 @@ export function formValuesToPatch(values: TeamFormValues, sport: string | null):
   if (sport === 'soccer') {
     patch.country = nullableString(values.country);
     patch.venue = buildVenuePatch(values, sport) ?? null;
-  } else if (sport === 'nfl') {
+  } else if (sport === 'american-football') {
     patch.city = nullableString(values.city);
     patch.conference = nullableString(values.conference);
     patch.division = nullableString(values.division);

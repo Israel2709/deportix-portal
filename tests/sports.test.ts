@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { sportPath } from '@/lib/sports';
 
 describe('sportPath', () => {
-  it('routes NFL to /nfl', () => {
-    expect(sportPath('nfl')).toBe('/nfl');
+  it('routes american-football to /american-football', () => {
+    expect(sportPath('american-football')).toBe('/american-football');
   });
 
   it('routes other sports to /deportes/{slug}', () => {

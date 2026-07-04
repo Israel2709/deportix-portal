@@ -31,8 +31,14 @@ export function useApi<T>(path: string | null): ApiState<T> & { reload: () => vo
   }, []);
 
   useEffect(() => {
-    if (path === null) return;
+    if (path === null) {
+      setState({ data: null, error: null, loading: false });
+      return;
+    }
+
     let active = true;
+    setState({ data: null, error: null, loading: true });
+
     apiGet<T>(path)
       .then((data) => {
         if (active) setState({ data, error: null, loading: false });

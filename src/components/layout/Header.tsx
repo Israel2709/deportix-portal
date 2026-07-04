@@ -7,7 +7,7 @@ import { getApiBaseUrl } from '@/lib/api';
 const NAV = [
   { href: '/', label: 'Inicio' },
   { href: '/liga-mx', label: 'Liga MX' },
-  { href: '/nfl', label: 'NFL' },
+  { href: '/american-football', label: 'Football americano' },
   { href: '/explorer', label: 'Explorador de API' },
 ];
 

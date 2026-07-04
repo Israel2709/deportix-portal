@@ -96,7 +96,7 @@ export function EditTeamView({ leagueId, teamId }: { leagueId: string; teamId: s
       !IMAGE_FIELDS.has(field),
   );
   const imageFields = fields.filter((field) => IMAGE_FIELDS.has(field));
-  const nflFields = fields.filter((field) =>
+  const americanFootballFields = fields.filter((field) =>
     ['city', 'conference', 'division'].includes(field),
   );
   const venueFields = fields.filter((field) => field.startsWith('venue'));
@@ -229,11 +229,11 @@ export function EditTeamView({ leagueId, teamId }: { leagueId: string; teamId: s
             </div>
           )}
 
-          {nflFields.length > 0 && (
+          {americanFootballFields.length > 0 && (
             <div>
               <SectionTitle>NFL</SectionTitle>
               <div className="grid gap-4 sm:grid-cols-2">
-                {nflFields.map((field) => (
+                {americanFootballFields.map((field) => (
                   <FieldInput
                     key={field}
                     field={field}

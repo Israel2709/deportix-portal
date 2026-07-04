@@ -59,11 +59,16 @@ export function useAllMatches(
 
   useEffect(() => {
     if (leagueId === null || seasonYear === null || !enabled) {
+      setData([]);
+      setError(null);
       setLoading(false);
       return;
     }
 
     let active = true;
+    setData([]);
+    setError(null);
+    setLoading(true);
 
     async function load() {
       try {

@@ -143,7 +143,7 @@ function throwApiError(res: Response, body: unknown): never {
     if (errors && typeof errors === 'object' && !Array.isArray(errors)) {
       const messages = Object.values(errors as Record<string, string>).filter(Boolean);
       if (messages.length > 0) {
-        throw new ApiClientError(messages.join(' · '), 'NFL_ERROR', res.status);
+        throw new ApiClientError(messages.join(' · '), 'AMERICAN_FOOTBALL_ERROR', res.status);
       }
     }
   }

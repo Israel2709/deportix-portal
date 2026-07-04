@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { ApiClientError, apiUploadImage } from '@/lib/api';
-import { NFL_BUTTON_SECONDARY } from '@/lib/nfl-forms/shared';
+import { AMERICAN_FOOTBALL_BUTTON_SECONDARY } from '@/lib/american-football-forms/shared';
 
 export type ImageUploadPurpose =
   | 'logo'
@@ -75,7 +75,7 @@ export function ImageUrlInput({
           type="button"
           disabled={uploading}
           onClick={() => inputRef.current?.click()}
-          className={NFL_BUTTON_SECONDARY}
+          className={AMERICAN_FOOTBALL_BUTTON_SECONDARY}
         >
           {uploading ? 'Subiendo…' : 'Subir archivo'}
         </button>

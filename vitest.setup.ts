@@ -10,7 +10,7 @@ vi.mock('next/navigation', () => ({
     refresh: vi.fn(),
   }),
   useSearchParams: () => new URLSearchParams(),
-  usePathname: () => '/nfl',
+  usePathname: () => '/american-football',
 }));
 
 // Ensure the DOM is reset between tests (avoids cross-test element leakage).

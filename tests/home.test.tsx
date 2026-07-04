@@ -16,7 +16,7 @@ const dataStatus = resource({
     },
     {
       id: 'sp2',
-      slug: 'nfl',
+      slug: 'american-football',
       name: 'NFL',
       leagueCount: 0,
       coverage: { teams: false, matches: false, standings: false, statistics: false },
@@ -56,7 +56,7 @@ describe('HomeView', () => {
     );
     expect(screen.getByRole('heading', { name: 'NFL' }).closest('a')).toHaveAttribute(
       'href',
-      '/nfl',
+      '/american-football',
     );
     expect(screen.getAllByText('Disponible').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Sin datos cargados aún').length).toBeGreaterThan(0);
