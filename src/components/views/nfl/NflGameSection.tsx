@@ -16,6 +16,7 @@ import {
   gameToFormValues,
   validateNflGameForm,
 } from '@/lib/nfl-forms/game-form';
+import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
 import {
   NflCheckboxField,
   NflFieldGrid,
@@ -57,8 +58,14 @@ function ScoreGrid({
   );
 }
 
-export function NflGameSection({ step }: { step: number }) {
-  const state = useNflSectionState(EMPTY_NFL_GAME_FORM);
+export function NflGameSection({
+  step,
+  onDataChanged,
+}: {
+  step: number;
+  onDataChanged?: () => void;
+}) {
+  const state = useNflSectionState(EMPTY_NFL_GAME_FORM, { onDataChanged });
   const [rows, setRows] = useState<NflGameItem[]>([]);
   const [teams, setTeams] = useState<NflTeamItem[]>([]);
   const [loadingList, setLoadingList] = useState(false);
@@ -276,8 +283,45 @@ export function NflGameSection({ step }: { step: number }) {
           <NflFieldGrid>
             <NflTextField label="Local ID" value={state.values.homeId} onChange={(v) => state.updateField('homeId', v)} />
             <NflTextField label="Local nombre" value={state.values.homeName} onChange={(v) => state.updateField('homeName', v)} />
+            <ImageUrlInput
+              label="Logo local"
+              value={state.values.homeLogo}
+              onChange={(v) => state.updateField('homeLogo', v)}
+              purpose="team_logo"
+              entityId={state.values.homeId}
+              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+            />
             <NflTextField label="Visitante ID" value={state.values.awayId} onChange={(v) => state.updateField('awayId', v)} />
             <NflTextField label="Visitante nombre" value={state.values.awayName} onChange={(v) => state.updateField('awayName', v)} />
+            <ImageUrlInput
+              label="Logo visitante"
+              value={state.values.awayLogo}
+              onChange={(v) => state.updateField('awayLogo', v)}
+              purpose="team_logo"
+              entityId={state.values.awayId}
+              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+            />
+          </NflFieldGrid>
+          <p className="text-sm font-medium text-slate-200">Liga embebida</p>
+          <NflFieldGrid>
+            <NflTextField label="Liga ID" value={state.values.leagueId} onChange={(v) => state.updateField('leagueId', v)} />
+            <NflTextField label="Liga nombre" value={state.values.leagueName} onChange={(v) => state.updateField('leagueName', v)} />
+            <ImageUrlInput
+              label="Logo liga"
+              value={state.values.leagueLogo}
+              onChange={(v) => state.updateField('leagueLogo', v)}
+              purpose="league_logo"
+              entityId={state.values.leagueId}
+              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+            />
+            <ImageUrlInput
+              label="Bandera país"
+              value={state.values.leagueCountryFlag}
+              onChange={(v) => state.updateField('leagueCountryFlag', v)}
+              purpose="flag"
+              entityId={state.values.leagueCountryName}
+              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+            />
           </NflFieldGrid>
           <ScoreGrid
             prefix="home"

@@ -17,6 +17,7 @@ import {
   type NflLeagueSeasonFormValues,
 } from '@/lib/nfl-forms/league-form';
 import { NFL_BUTTON_SECONDARY } from '@/lib/nfl-forms/shared';
+import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
 import {
   NflCheckboxField,
   NflFieldGrid,
@@ -26,8 +27,14 @@ import {
 } from './NflFormShell';
 import { submitLabelForMode, useNflSectionState } from './useNflSectionState';
 
-export function NflLeagueSection({ step }: { step: number }) {
-  const state = useNflSectionState(EMPTY_NFL_LEAGUE_FORM);
+export function NflLeagueSection({
+  step,
+  onDataChanged,
+}: {
+  step: number;
+  onDataChanged?: () => void;
+}) {
+  const state = useNflSectionState(EMPTY_NFL_LEAGUE_FORM, { onDataChanged });
   const [rows, setRows] = useState<NflLeagueItem[]>([]);
   const [loadingList, setLoadingList] = useState(false);
 
@@ -159,13 +166,35 @@ export function NflLeagueSection({ step }: { step: number }) {
             <NflTextField label="ID liga" value={state.values.leagueId} onChange={(v) => state.updateField('leagueId', v)} />
             <NflTextField label="Nombre" value={state.values.leagueName} onChange={(v) => state.updateField('leagueName', v)} />
             <NflTextField label="Tipo" value={state.values.leagueType} onChange={(v) => state.updateField('leagueType', v)} />
-            <NflTextField label="Logo (URL)" value={state.values.leagueLogo} onChange={(v) => state.updateField('leagueLogo', v)} />
+            <ImageUrlInput
+              label="Logo de liga"
+              value={state.values.leagueLogo}
+              onChange={(v) => state.updateField('leagueLogo', v)}
+              purpose="league_logo"
+              entityId={state.values.leagueId}
+              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+            />
+            <ImageUrlInput
+              label="Logo alternativo (alt_logo)"
+              value={state.values.leagueAltLogo ?? ''}
+              onChange={(v) => state.updateField('leagueAltLogo', v)}
+              purpose="alt_logo"
+              entityId={state.values.leagueId}
+              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+            />
           </NflFieldGrid>
           <p className="text-sm font-medium text-slate-200">País</p>
           <NflFieldGrid>
             <NflTextField label="Nombre" value={state.values.countryName} onChange={(v) => state.updateField('countryName', v)} />
             <NflTextField label="Código" value={state.values.countryCode} onChange={(v) => state.updateField('countryCode', v)} />
-            <NflTextField label="Bandera (URL)" value={state.values.countryFlag} onChange={(v) => state.updateField('countryFlag', v)} />
+            <ImageUrlInput
+              label="Bandera del país"
+              value={state.values.countryFlag}
+              onChange={(v) => state.updateField('countryFlag', v)}
+              purpose="flag"
+              entityId={state.values.countryName}
+              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+            />
           </NflFieldGrid>
           <div className="space-y-4">
             <div className="flex items-center justify-between">

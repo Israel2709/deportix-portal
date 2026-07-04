@@ -16,11 +16,18 @@ import {
   standingToFormValues,
   validateNflStandingForm,
 } from '@/lib/nfl-forms/standing-form';
+import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
 import { NflFieldGrid, NflFormShell, NflRowActions, NflTextField } from './NflFormShell';
 import { submitLabelForMode, useNflSectionState } from './useNflSectionState';
 
-export function NflStandingSection({ step }: { step: number }) {
-  const state = useNflSectionState(EMPTY_NFL_STANDING_FORM);
+export function NflStandingSection({
+  step,
+  onDataChanged,
+}: {
+  step: number;
+  onDataChanged?: () => void;
+}) {
+  const state = useNflSectionState(EMPTY_NFL_STANDING_FORM, { onDataChanged });
   const [rows, setRows] = useState<NflStandingItem[]>([]);
   const [teams, setTeams] = useState<NflTeamItem[]>([]);
   const [loadingList, setLoadingList] = useState(false);
@@ -203,6 +210,30 @@ export function NflStandingSection({ step }: { step: number }) {
           <NflFieldGrid>
             <NflTextField label="Equipo ID" value={state.values.teamId} onChange={(v) => state.updateField('teamId', v)} />
             <NflTextField label="Equipo nombre" value={state.values.teamName} onChange={(v) => state.updateField('teamName', v)} />
+            <ImageUrlInput
+              label="Logo equipo"
+              value={state.values.teamLogo}
+              onChange={(v) => state.updateField('teamLogo', v)}
+              purpose="team_logo"
+              entityId={state.values.teamId}
+              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+            />
+            <ImageUrlInput
+              label="Logo liga"
+              value={state.values.leagueLogo}
+              onChange={(v) => state.updateField('leagueLogo', v)}
+              purpose="league_logo"
+              entityId={state.values.leagueId}
+              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+            />
+            <ImageUrlInput
+              label="Bandera país"
+              value={state.values.leagueCountryFlag}
+              onChange={(v) => state.updateField('leagueCountryFlag', v)}
+              purpose="flag"
+              entityId={state.values.leagueCountryName}
+              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+            />
             <NflTextField label="Victorias" value={state.values.won} onChange={(v) => state.updateField('won', v)} />
             <NflTextField label="Derrotas" value={state.values.lost} onChange={(v) => state.updateField('lost', v)} />
             <NflTextField label="Empates" value={state.values.ties} onChange={(v) => state.updateField('ties', v)} />

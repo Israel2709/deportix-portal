@@ -16,8 +16,14 @@ import {
 import { NflFieldGrid, NflFormShell, NflTextField } from './NflFormShell';
 import { submitLabelForMode, useNflSectionState } from './useNflSectionState';
 
-export function NflTimezoneSection({ step }: { step: number }) {
-  const state = useNflSectionState(EMPTY_NFL_TIMEZONE_FORM);
+export function NflTimezoneSection({
+  step,
+  onDataChanged,
+}: {
+  step: number;
+  onDataChanged?: () => void;
+}) {
+  const state = useNflSectionState(EMPTY_NFL_TIMEZONE_FORM, { onDataChanged });
   const [rows, setRows] = useState<string[]>([]);
   const [loadingList, setLoadingList] = useState(false);
 

@@ -10,8 +10,14 @@ import {
 import { NflFormShell, NflTextField } from './NflFormShell';
 import { submitLabelForMode, useNflSectionState } from './useNflSectionState';
 
-export function NflSeasonSection({ step }: { step: number }) {
-  const state = useNflSectionState(EMPTY_NFL_SEASON_FORM);
+export function NflSeasonSection({
+  step,
+  onDataChanged,
+}: {
+  step: number;
+  onDataChanged?: () => void;
+}) {
+  const state = useNflSectionState(EMPTY_NFL_SEASON_FORM, { onDataChanged });
   const [rows, setRows] = useState<number[]>([]);
   const [loadingList, setLoadingList] = useState(false);
 

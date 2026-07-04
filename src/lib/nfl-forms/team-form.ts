@@ -9,6 +9,7 @@ export interface NflTeamFormValues {
   id: string;
   name: string;
   logo: string;
+  altLogo: string;
 }
 
 export const EMPTY_NFL_TEAM_FORM: NflTeamFormValues = {
@@ -19,6 +20,7 @@ export const EMPTY_NFL_TEAM_FORM: NflTeamFormValues = {
   id: '25',
   name: 'Miami Dolphins',
   logo: 'https://media.api-sports.io/american-football/teams/25.png',
+  altLogo: '',
 };
 
 export function teamToFormValues(item: NflTeamItem): NflTeamFormValues {
@@ -29,6 +31,7 @@ export function teamToFormValues(item: NflTeamItem): NflTeamFormValues {
     id: String(item.id),
     name: item.name,
     logo: item.logo ?? '',
+    altLogo: item.altLogo ?? '',
   };
 }
 
@@ -55,5 +58,6 @@ export function buildNflTeamBody(values: NflTeamFormValues): NflTeamItem {
     id: /^\d+$/.test(id) ? Number(id) : id,
     name: values.name.trim(),
     logo: nullableString(values.logo),
+    altLogo: nullableString(values.altLogo),
   };
 }

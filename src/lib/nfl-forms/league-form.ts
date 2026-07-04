@@ -21,6 +21,7 @@ export interface NflLeagueFormValues {
   leagueName: string;
   leagueType: string;
   leagueLogo: string;
+  leagueAltLogo: string;
   countryName: string;
   countryCode: string;
   countryFlag: string;
@@ -47,6 +48,7 @@ export const EMPTY_NFL_LEAGUE_FORM: NflLeagueFormValues = {
   leagueName: 'NFL',
   leagueType: 'league',
   leagueLogo: 'https://media.api-sports.io/american-football/leagues/1.png',
+  leagueAltLogo: '',
   countryName: 'USA',
   countryCode: 'US',
   countryFlag: 'https://media.api-sports.io/flags/us.svg',
@@ -60,6 +62,7 @@ export function leagueToFormValues(item: NflLeagueItem): NflLeagueFormValues {
     leagueName: item.league.name,
     leagueType: item.league.type ?? 'league',
     leagueLogo: item.league.logo ?? '',
+    leagueAltLogo: item.league.altLogo ?? '',
     countryName: item.country.name,
     countryCode: item.country.code ?? '',
     countryFlag: item.country.flag ?? '',
@@ -125,6 +128,7 @@ export function buildNflLeagueBody(values: NflLeagueFormValues): NflLeagueItem {
       name: values.leagueName.trim(),
       type: nullableString(values.leagueType),
       logo: nullableString(values.leagueLogo),
+      altLogo: nullableString(values.leagueAltLogo),
     },
     country: {
       name: values.countryName.trim(),

@@ -23,7 +23,7 @@ const STEPS = [
 
 type StepId = (typeof STEPS)[number]['id'];
 
-export function NflDataLoader() {
+export function NflDataLoader({ onDataChanged }: { onDataChanged?: () => void }) {
   const [activeStep, setActiveStep] = useState<StepId>('countries');
 
   return (
@@ -70,13 +70,13 @@ export function NflDataLoader() {
         </nav>
 
         <div className="min-w-0 flex-1">
-          {activeStep === 'countries' && <NflCountrySection step={1} />}
-          {activeStep === 'leagues' && <NflLeagueSection step={2} />}
-          {activeStep === 'seasons' && <NflSeasonSection step={3} />}
-          {activeStep === 'teams' && <NflTeamSection step={4} />}
-          {activeStep === 'games' && <NflGameSection step={5} />}
-          {activeStep === 'standings' && <NflStandingSection step={6} />}
-          {activeStep === 'timezone' && <NflTimezoneSection step={7} />}
+          {activeStep === 'countries' && <NflCountrySection step={1} onDataChanged={onDataChanged} />}
+          {activeStep === 'leagues' && <NflLeagueSection step={2} onDataChanged={onDataChanged} />}
+          {activeStep === 'seasons' && <NflSeasonSection step={3} onDataChanged={onDataChanged} />}
+          {activeStep === 'teams' && <NflTeamSection step={4} onDataChanged={onDataChanged} />}
+          {activeStep === 'games' && <NflGameSection step={5} onDataChanged={onDataChanged} />}
+          {activeStep === 'standings' && <NflStandingSection step={6} onDataChanged={onDataChanged} />}
+          {activeStep === 'timezone' && <NflTimezoneSection step={7} onDataChanged={onDataChanged} />}
         </div>
       </div>
     </div>

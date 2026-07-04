@@ -89,10 +89,10 @@ export function SoccerLeaguesSection() {
                   <Link href={leaguePath(league)} className="block">
                     <Card className="transition hover:border-blue-500/40">
                       <div className="flex items-center gap-3">
-                        {league.logo && (
+                        {(league.altLogo ?? league.logo) && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={league.logo}
+                            src={league.altLogo ?? league.logo ?? ''}
                             alt=""
                             className="h-10 w-10 rounded bg-white/5 object-contain p-1"
                           />

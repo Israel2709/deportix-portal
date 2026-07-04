@@ -20,10 +20,17 @@ import {
   NflRowActions,
   NflTextField,
 } from './NflFormShell';
+import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
 import { submitLabelForMode, useNflSectionState } from './useNflSectionState';
 
-export function NflCountrySection({ step }: { step: number }) {
-  const state = useNflSectionState(EMPTY_NFL_COUNTRY_FORM);
+export function NflCountrySection({
+  step,
+  onDataChanged,
+}: {
+  step: number;
+  onDataChanged?: () => void;
+}) {
+  const state = useNflSectionState(EMPTY_NFL_COUNTRY_FORM, { onDataChanged });
   const [rows, setRows] = useState<NflCountryItem[]>([]);
   const [loadingList, setLoadingList] = useState(false);
 
@@ -152,7 +159,14 @@ export function NflCountrySection({ step }: { step: number }) {
         <NflFieldGrid>
           <NflTextField label="Nombre" value={state.values.name} onChange={(v) => state.updateField('name', v)} />
           <NflTextField label="Código" value={state.values.code} onChange={(v) => state.updateField('code', v)} />
-          <NflTextField label="Bandera (URL)" value={state.values.flag} onChange={(v) => state.updateField('flag', v)} />
+          <ImageUrlInput
+            label="Bandera"
+            value={state.values.flag}
+            onChange={(v) => state.updateField('flag', v)}
+            purpose="flag"
+            entityId={state.values.name || 'country'}
+            onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+          />
         </NflFieldGrid>
       )}
       {state.mode === 'delete' && (

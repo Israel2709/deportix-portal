@@ -14,11 +14,18 @@ import {
   teamToFormValues,
   validateNflTeamForm,
 } from '@/lib/nfl-forms/team-form';
+import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
 import { NflFieldGrid, NflFormShell, NflRowActions, NflTextField } from './NflFormShell';
 import { submitLabelForMode, useNflSectionState } from './useNflSectionState';
 
-export function NflTeamSection({ step }: { step: number }) {
-  const state = useNflSectionState(EMPTY_NFL_TEAM_FORM);
+export function NflTeamSection({
+  step,
+  onDataChanged,
+}: {
+  step: number;
+  onDataChanged?: () => void;
+}) {
+  const state = useNflSectionState(EMPTY_NFL_TEAM_FORM, { onDataChanged });
   const [rows, setRows] = useState<NflTeamItem[]>([]);
   const [loadingList, setLoadingList] = useState(false);
 
@@ -148,7 +155,22 @@ export function NflTeamSection({ step }: { step: number }) {
         <NflFieldGrid>
           <NflTextField label="ID api-sports" value={state.values.id} onChange={(v) => state.updateField('id', v)} />
           <NflTextField label="Nombre" value={state.values.name} onChange={(v) => state.updateField('name', v)} />
-          <NflTextField label="Logo (URL)" value={state.values.logo} onChange={(v) => state.updateField('logo', v)} />
+          <ImageUrlInput
+            label="Logo"
+            value={state.values.logo}
+            onChange={(v) => state.updateField('logo', v)}
+            purpose="team_logo"
+            entityId={state.values.id}
+            onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+          />
+          <ImageUrlInput
+            label="Logo alternativo (alt_logo)"
+            value={state.values.altLogo}
+            onChange={(v) => state.updateField('altLogo', v)}
+            purpose="alt_logo"
+            entityId={state.values.id}
+            onUploadError={(msg) => state.toast.error('Error al subir', msg)}
+          />
         </NflFieldGrid>
       )}
     </NflFormShell>

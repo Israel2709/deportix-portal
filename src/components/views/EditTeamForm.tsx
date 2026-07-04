@@ -3,9 +3,13 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type FormEvent } from 'react';
+import { useToast } from '@/components/notifications/ToastProvider';
+import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
 import { useApi } from '@/lib/use-api';
+import { ApiClientError } from '@/lib/api';
 import type { ApiResource, Team } from '@/lib/types';
-import { applyTeamPatch, saveTeamOverride } from '@/lib/team-edits';
+import { applyTeamPatch } from '@/lib/team-edits';
+import { patchTeamApi } from '@/lib/team-api';
 import { useTeamOverrides } from '@/lib/use-team-overrides';
 import {
   TEAM_FORM_FIELD_LABELS,
@@ -22,6 +26,8 @@ import { ErrorState, LoadingState } from '@/components/states/States';
 const inputClassName =
   'mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100';
 const labelClassName = 'block text-sm font-medium text-slate-200';
+
+const IMAGE_FIELDS = new Set<TeamFormField>(['logo', 'altLogo']);
 
 function FieldInput({
   field,
@@ -57,10 +63,12 @@ function FieldInput({
 
 export function EditTeamView({ leagueId, teamId }: { leagueId: string; teamId: string }) {
   const router = useRouter();
+  const toast = useToast();
   const encodedTeamId = encodeURIComponent(teamId);
   const teamRes = useApi<ApiResource<Team>>(`/v1/teams/${encodedTeamId}`);
   const { overrides: teamOverrides } = useTeamOverrides();
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const baseTeam = teamRes.data?.data;
   const sport = baseTeam?.sport ?? null;
@@ -80,8 +88,14 @@ export function EditTeamView({ leagueId, teamId }: { leagueId: string; teamId: s
 
   const fields = teamFormFieldsForSport(sport);
   const generalFields = fields.filter(
-    (field) => !field.startsWith('venue') && field !== 'city' && field !== 'conference' && field !== 'division',
+    (field) =>
+      !field.startsWith('venue') &&
+      field !== 'city' &&
+      field !== 'conference' &&
+      field !== 'division' &&
+      !IMAGE_FIELDS.has(field),
   );
+  const imageFields = fields.filter((field) => IMAGE_FIELDS.has(field));
   const nflFields = fields.filter((field) =>
     ['city', 'conference', 'division'].includes(field),
   );
@@ -96,7 +110,7 @@ export function EditTeamView({ leagueId, teamId }: { leagueId: string; teamId: s
     }));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
@@ -112,8 +126,19 @@ export function EditTeamView({ leagueId, teamId }: { leagueId: string; teamId: s
     }
 
     const patch = formValuesToPatch(effectiveValues, sport);
-    saveTeamOverride(baseTeam.id, patch);
-    router.push(backHref);
+    setSubmitting(true);
+    try {
+      await patchTeamApi(baseTeam.id, patch);
+      toast.success('Equipo actualizado', 'Los cambios se guardaron en la API.');
+      router.push(backHref);
+    } catch (err) {
+      const message =
+        err instanceof ApiClientError ? err.message : 'No se pudo guardar el equipo.';
+      setError(message);
+      toast.error('Error al guardar', message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (teamRes.loading) return <LoadingState label="Cargando equipo…" />;
@@ -132,8 +157,8 @@ export function EditTeamView({ leagueId, teamId }: { leagueId: string; teamId: s
         </Link>
         <h1 className="mt-3 text-2xl font-bold text-slate-50">Editar equipo</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Modifica los datos del equipo según la estructura de la API. Los cambios se guardan
-          localmente en este navegador y se aplican sobre la información de la API.
+          Modifica los datos del equipo y guarda en la API. Los logos pueden ser URL externa o
+          archivo subido a Firebase Storage.
         </p>
         <p className="mt-2 text-xs text-slate-500">
           {previewTeam.name ?? teamId}
@@ -161,7 +186,7 @@ export function EditTeamView({ leagueId, teamId }: { leagueId: string; teamId: s
       </Card>
 
       <Card>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
           <div>
             <SectionTitle>Datos generales</SectionTitle>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -175,6 +200,34 @@ export function EditTeamView({ leagueId, teamId }: { leagueId: string; teamId: s
               ))}
             </div>
           </div>
+
+          {imageFields.length > 0 && (
+            <div>
+              <SectionTitle>Imágenes</SectionTitle>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {imageFields.includes('logo') && (
+                  <ImageUrlInput
+                    label={TEAM_FORM_FIELD_LABELS.logo}
+                    value={effectiveValues.logo}
+                    onChange={(v) => updateField('logo', v)}
+                    purpose="logo"
+                    entityId={baseTeam.id}
+                    onUploadError={(msg) => toast.error('Error al subir', msg)}
+                  />
+                )}
+                {imageFields.includes('altLogo') && (
+                  <ImageUrlInput
+                    label={TEAM_FORM_FIELD_LABELS.altLogo}
+                    value={effectiveValues.altLogo}
+                    onChange={(v) => updateField('altLogo', v)}
+                    purpose="alt_logo"
+                    entityId={baseTeam.id}
+                    onUploadError={(msg) => toast.error('Error al subir', msg)}
+                  />
+                )}
+              </div>
+            </div>
+          )}
 
           {nflFields.length > 0 && (
             <div>
@@ -213,9 +266,10 @@ export function EditTeamView({ leagueId, teamId }: { leagueId: string; teamId: s
           <div className="flex flex-wrap gap-3">
             <button
               type="submit"
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+              disabled={submitting}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
             >
-              Guardar cambios
+              {submitting ? 'Guardando…' : 'Guardar cambios'}
             </button>
             <Link
               href={backHref}

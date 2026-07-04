@@ -195,9 +195,9 @@ export function LeagueDetail({
   return (
     <div className="space-y-8">
       <section className="flex flex-wrap items-center gap-4">
-        {league?.logo && (
+        {(league?.altLogo ?? league?.logo) && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={league.logo} alt="" className="h-14 w-14 rounded bg-white/5 object-contain p-1" />
+          <img src={league.altLogo ?? league.logo ?? ''} alt="" className="h-14 w-14 rounded bg-white/5 object-contain p-1" />
         )}
         <div>
           <h1 className="text-2xl font-bold text-slate-50">{title ?? league?.name ?? leagueId}</h1>

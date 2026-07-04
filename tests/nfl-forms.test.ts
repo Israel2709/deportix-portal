@@ -40,6 +40,7 @@ describe('NFL form builders', () => {
   it('builds league body with nested seasons', () => {
     const body = buildNflLeagueBody(EMPTY_NFL_LEAGUE_FORM);
     expect(body.league.name).toBe('NFL');
+    expect(body.league.altLogo).toBeNull();
     expect(body.seasons).toHaveLength(1);
     expect(body.seasons[0]?.coverage?.standings).toBe(true);
   });
@@ -52,6 +53,7 @@ describe('NFL form builders', () => {
     const body = buildNflTeamBody(EMPTY_NFL_TEAM_FORM);
     expect(body.id).toBe(25);
     expect(body.name).toBe('Miami Dolphins');
+    expect(body.altLogo).toBeNull();
   });
 
   it('builds game body with scores', () => {

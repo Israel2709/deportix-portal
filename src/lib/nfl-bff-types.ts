@@ -39,6 +39,7 @@ export interface NflLeagueItem {
     name: string;
     type?: string | null;
     logo?: string | null;
+    altLogo?: string | null;
   };
   country: {
     name: string;
@@ -52,6 +53,7 @@ export interface NflTeamItem {
   id: number | string;
   name: string;
   logo?: string | null;
+  altLogo?: string | null;
 }
 
 export interface NflGameScoreSide {

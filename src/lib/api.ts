@@ -1,6 +1,7 @@
 import type { ApiErrorBody } from './types';
 
 const DEFAULT_API_PORT = process.env.NEXT_PUBLIC_API_PORT ?? '3000';
+const FETCH_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_API_FETCH_TIMEOUT_MS ?? '15000');
 
 function envApiBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
@@ -18,12 +19,20 @@ function isLocalhostUrl(url: string): boolean {
 /**
  * Resolves the Deportix API base URL. In the browser, when the env points at localhost,
  * uses the same hostname as the portal + NEXT_PUBLIC_API_PORT so LAN access works without
- * hardcoding the machine IP. Production overrides (non-localhost env) are always respected.
+ * hardcoding the machine IP. Override with NEXT_PUBLIC_API_LAN_HOST if needed (e.g. fixed IP).
+ * Production overrides (non-localhost env) are always respected.
  */
 export function getApiBaseUrl(): string {
   const fromEnv = envApiBaseUrl();
   if (typeof window === 'undefined') return fromEnv;
   if (!isLocalhostUrl(fromEnv)) return fromEnv;
+
+  const lanHost = process.env.NEXT_PUBLIC_API_LAN_HOST?.trim();
+  if (lanHost) {
+    const protocol = window.location.protocol;
+    return `${protocol}//${lanHost.replace(/\/+$/, '')}:${DEFAULT_API_PORT}`;
+  }
+
   return `${window.location.protocol}//${window.location.hostname}:${DEFAULT_API_PORT}`;
 }
 
@@ -68,25 +77,59 @@ function now(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
+function networkError(err: unknown, url: string): ApiClientError {
+  if (err instanceof ApiClientError) return err;
+  if (err instanceof Error && err.name === 'AbortError') {
+    return new ApiClientError(
+      `La API no respondió a tiempo (${url}). Comprueba que deportix-api corre con pnpm dev (-H 0.0.0.0 -p ${DEFAULT_API_PORT}) y que el firewall permite conexiones entrantes.`,
+      'NETWORK_TIMEOUT',
+      0,
+    );
+  }
+  if (err instanceof TypeError) {
+    return new ApiClientError(
+      `No se pudo conectar a ${url}. Desde otro dispositivo usa http://<IP-de-tu-Mac>:3001 para el portal; la API debe estar en el puerto ${DEFAULT_API_PORT}.`,
+      'NETWORK_ERROR',
+      0,
+    );
+  }
+  return new ApiClientError(
+    err instanceof Error ? err.message : 'Error de red.',
+    'NETWORK_ERROR',
+    0,
+  );
+}
+
 /** Bypass browser/CDN caches so ETag revalidation cannot return stale 304 responses. */
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
   if (!headers.has('Accept')) headers.set('Accept', 'application/json');
 
-  const res = await fetch(apiUrl(path), {
-    ...init,
-    headers,
-    cache: 'no-store',
-  });
+  const url = apiUrl(path);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-  if (res.status !== 304) return res;
+  try {
+    const res = await fetch(url, {
+      ...init,
+      headers,
+      cache: 'no-store',
+      signal: controller.signal,
+    });
 
-  // Belt-and-suspenders: retry once if a cache still returns 304 with an empty body.
-  return fetch(apiUrl(path), {
-    ...init,
-    headers,
-    cache: 'reload',
-  });
+    if (res.status !== 304) return res;
+
+    return fetch(url, {
+      ...init,
+      headers,
+      cache: 'reload',
+      signal: controller.signal,
+    });
+  } catch (err) {
+    throw networkError(err, url);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function readJsonResponse(res: Response): Promise<unknown> {
@@ -180,6 +223,36 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const parsed = await readJsonResponse(res);
   if (!res.ok) throwApiError(res, parsed);
   return parsed as T;
+}
+
+/** Upload an image file; returns the public Storage URL from POST /v1/uploads. */
+export async function apiUploadImage(
+  file: File,
+  options?: { purpose?: string; entityId?: string },
+): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  if (options?.purpose) form.append('purpose', options.purpose);
+  if (options?.entityId) form.append('entityId', options.entityId);
+
+  const res = await apiFetch('/v1/uploads', { method: 'POST', body: form });
+  const body = await readJsonResponse(res);
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new ApiClientError(
+        `El endpoint de subida no existe en ${getApiBaseUrl()}. Reinicia deportix-api (pnpm dev) o despliega la versión más reciente.`,
+        'NOT_FOUND',
+        res.status,
+      );
+    }
+    throwApiError(res, body);
+  }
+
+  const url = (body as { data?: { url?: string } })?.data?.url;
+  if (!url) {
+    throw new ApiClientError('La subida no devolvió una URL.', 'HTTP_ERROR', res.status);
+  }
+  return url;
 }
 
 /** Endpoints the API Explorer is allowed to call (no arbitrary URLs). */

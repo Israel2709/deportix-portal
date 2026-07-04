@@ -32,4 +32,16 @@ describe('getApiBaseUrl', () => {
     const { getApiBaseUrl } = await import('@/lib/api');
     expect(getApiBaseUrl()).toBe('https://api.example.com');
   });
+
+  it('uses NEXT_PUBLIC_API_LAN_HOST when set', async () => {
+    vi.stubEnv('NEXT_PUBLIC_API_BASE_URL', 'http://localhost:3000');
+    vi.stubEnv('NEXT_PUBLIC_API_LAN_HOST', '10.0.0.5');
+    vi.stubEnv('NEXT_PUBLIC_API_PORT', '3000');
+    vi.stubGlobal('window', {
+      location: { protocol: 'http:', hostname: '192.168.100.7' },
+    } as Window & typeof globalThis);
+
+    const { getApiBaseUrl } = await import('@/lib/api');
+    expect(getApiBaseUrl()).toBe('http://10.0.0.5:3000');
+  });
 });

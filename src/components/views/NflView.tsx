@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApi } from '@/lib/use-api';
 import type { ApiCollection, ApiResource, DataStatus, League } from '@/lib/types';
 import { Card, CoverageBadge, ResourceDot, SectionTitle, coverageLevel } from '@/components/ui/Ui';
@@ -15,6 +15,19 @@ export function NflView() {
   const status = useApi<ApiResource<DataStatus>>('/v1/data-status');
   const leagues = useApi<ApiCollection<League>>('/v1/leagues?sport=nfl');
   const nfl = status.data?.data.sports.find((s) => s.slug === 'nfl');
+  const prevTab = useRef(tab);
+
+  const refreshCoverage = useCallback(() => {
+    status.reload();
+    leagues.reload();
+  }, [status, leagues]);
+
+  useEffect(() => {
+    if (prevTab.current === 'loader' && tab === 'coverage') {
+      refreshCoverage();
+    }
+    prevTab.current = tab;
+  }, [tab, refreshCoverage]);
 
   return (
     <div className="space-y-8">
@@ -130,7 +143,7 @@ export function NflView() {
           </section>
         </>
       ) : (
-        <NflDataLoader />
+        <NflDataLoader onDataChanged={refreshCoverage} />
       )}
     </div>
   );

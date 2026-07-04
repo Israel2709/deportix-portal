@@ -5,7 +5,10 @@ import { ApiClientError } from '@/lib/api';
 import { useToast } from '@/components/notifications/ToastProvider';
 import type { NflFormMode } from '@/lib/nfl-forms/shared';
 
-export function useNflSectionState<T extends object>(emptyForm: T) {
+export function useNflSectionState<T extends object>(
+  emptyForm: T,
+  options?: { onDataChanged?: () => void },
+) {
   const toast = useToast();
   const [mode, setMode] = useState<NflFormMode>('create');
   const [values, setValues] = useState<T>(emptyForm);
@@ -34,8 +37,9 @@ export function useNflSectionState<T extends object>(emptyForm: T) {
         results != null ? `results: ${results}` : undefined,
       );
       reloadList();
+      options?.onDataChanged?.();
     },
-    [toast, reloadList],
+    [toast, reloadList, options?.onDataChanged],
   );
 
   return {
