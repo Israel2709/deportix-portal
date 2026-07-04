@@ -1,8 +1,9 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import type { Season } from '@/lib/types';
 import { seasonLabel } from '@/lib/seasons';
-import { ErrorState, LoadingState } from '@/components/states/States';
+import { EmptyState, ErrorState, LoadingState } from '@/components/states/States';
 
 export function LeagueSeasonSidebar({
   seasons,
@@ -11,6 +12,9 @@ export function LeagueSeasonSidebar({
   selectedSeasonId,
   onSelect,
   onRetry,
+  emptyTitle = 'No hay temporadas registradas.',
+  emptyHint,
+  emptyAction,
 }: {
   seasons: Season[];
   loading: boolean;
@@ -18,6 +22,9 @@ export function LeagueSeasonSidebar({
   selectedSeasonId: string | null;
   onSelect: (seasonId: string) => void;
   onRetry?: () => void;
+  emptyTitle?: string;
+  emptyHint?: string;
+  emptyAction?: ReactNode;
 }) {
   return (
     <aside className="w-full shrink-0 lg:w-52">
@@ -30,9 +37,7 @@ export function LeagueSeasonSidebar({
       {!loading && error && <ErrorState message={error} onRetry={onRetry} />}
 
       {!loading && !error && seasons.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-700 bg-slate-900/30 p-4 text-sm text-slate-400">
-          No hay temporadas registradas.
-        </p>
+        <EmptyState title={emptyTitle} hint={emptyHint} action={emptyAction} />
       )}
 
       {!loading && !error && seasons.length > 0 && (

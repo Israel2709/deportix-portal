@@ -54,7 +54,7 @@ describe('NflView tabs and loader', () => {
 
     renderNfl();
     expect(await screen.findByText(/Aún no hay datos de la NFL cargados/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Ir a carga de datos' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ir a carga de datos' })).toBeInTheDocument();
   });
 
   it('shows success toast after creating country', async () => {
