@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import {
-  createAmericanFootballCountry,
-  deleteAmericanFootballCountry,
-  getAmericanFootballCountries,
-  updateAmericanFootballCountry,
-} from '@/lib/american-football-api';
-import type { AmericanFootballCountryItem } from '@/lib/american-football-bff-types';
+  createCatalogCountry,
+  deleteCatalogCountry,
+  getCatalogCountries,
+  updateCatalogCountry,
+} from '@/lib/catalog-api';
+import type { CatalogCountry } from '@/lib/catalog-types';
 import {
   EMPTY_AMERICAN_FOOTBALL_COUNTRY_FORM,
   buildAmericanFootballCountryBody,
@@ -31,7 +31,7 @@ export function AmericanFootballCountrySection({
   onDataChanged?: () => void;
 }) {
   const state = useAmericanFootballSectionState(EMPTY_AMERICAN_FOOTBALL_COUNTRY_FORM, { onDataChanged });
-  const [rows, setRows] = useState<AmericanFootballCountryItem[]>([]);
+  const [rows, setRows] = useState<CatalogCountry[]>([]);
   const [loadingList, setLoadingList] = useState(false);
 
   useEffect(() => {
@@ -39,12 +39,11 @@ export function AmericanFootballCountrySection({
     async function load() {
       setLoadingList(true);
       try {
-        const envelope = await getAmericanFootballCountries(
-          state.mode === 'query' && state.values.filterName.trim()
-            ? state.values.filterName.trim()
-            : undefined,
-        );
-        if (!cancelled) setRows(envelope.response);
+        const filter = state.mode === 'query' && state.values.filterName.trim()
+          ? state.values.filterName.trim()
+          : undefined;
+        const countries = await getCatalogCountries(filter ? { name: filter } : undefined);
+        if (!cancelled) setRows(countries);
       } catch {
         if (!cancelled) setRows([]);
       } finally {
@@ -81,14 +80,14 @@ export function AmericanFootballCountrySection({
     try {
       const body = buildAmericanFootballCountryBody(state.values);
       if (state.mode === 'create') {
-        const res = await createAmericanFootballCountry(body);
-        state.handleSuccess('País creado', res.results);
+        await createCatalogCountry(body);
+        state.handleSuccess('País creado');
         state.setValues(EMPTY_AMERICAN_FOOTBALL_COUNTRY_FORM);
       } else if (state.mode === 'edit') {
-        const res = await updateAmericanFootballCountry(body);
-        state.handleSuccess('País actualizado', res.results);
+        await updateCatalogCountry(state.values.originalName || body.name, body);
+        state.handleSuccess('País actualizado');
       } else if (state.mode === 'delete') {
-        await deleteAmericanFootballCountry(body);
+        await deleteCatalogCountry(body.name);
         state.handleSuccess('País eliminado');
         state.setConfirmDelete(null);
         state.setValues(EMPTY_AMERICAN_FOOTBALL_COUNTRY_FORM);
@@ -105,7 +104,7 @@ export function AmericanFootballCountrySection({
     <AmericanFootballFormShell
       step={step}
       title="Países"
-      description="Catálogo opcional con shape Football v3. POST antes de ligas si necesitas países personalizados."
+      description="Catálogo global compartido por todos los deportes (Firestore countries). Los 169 países de soccer ya están cargados; aquí puedes consultarlos o añadir personalizados."
       mode={state.mode}
       onModeChange={(mode) => {
         state.setMode(mode);

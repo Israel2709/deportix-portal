@@ -83,9 +83,9 @@ export function validateTeamForm(values: TeamFormValues, sport: string | null): 
   }
 
   if (sport === 'american-football') {
-    if (!values.city.trim()) return 'La ciudad es obligatoria para equipos NFL.';
-    if (!values.conference.trim()) return 'La conferencia es obligatoria para equipos NFL.';
-    if (!values.division.trim()) return 'La división es obligatoria para equipos NFL.';
+    if (!values.city.trim()) return 'La ciudad es obligatoria para equipos de football americano.';
+    if (!values.conference.trim()) return 'La conferencia es obligatoria para equipos de football americano.';
+    if (!values.division.trim()) return 'La división es obligatoria para equipos de football americano.';
   }
 
   return null;

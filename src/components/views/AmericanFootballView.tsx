@@ -9,6 +9,7 @@ import { Card, CoverageBadge, ResourceDot, SectionTitle, coverageLevel } from '@
 import { DataSection } from '@/components/states/States';
 import { formatDateTime } from '@/lib/format';
 import { americanFootballLeaguePath, americanFootballTabPath, type AmericanFootballTab } from '@/lib/american-football-paths';
+import { AMERICAN_FOOTBALL_SPORT_LABEL } from '@/lib/sports';
 import { AmericanFootballDataLoader } from './american-football/AmericanFootballDataLoader';
 import { AmericanFootballLeaguesBrowse } from './american-football/AmericanFootballLeaguesBrowse';
 import { AmericanFootballLoaderLink } from './american-football/AmericanFootballLoaderLink';
@@ -58,7 +59,7 @@ export function AmericanFootballView({ initialTab = 'coverage' }: { initialTab?:
     <div className="space-y-8">
       <section>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-slate-50">NFL</h1>
+          <h1 className="text-2xl font-bold text-slate-50">{AMERICAN_FOOTBALL_SPORT_LABEL}</h1>
           {americanFootball && tab === 'coverage' && <CoverageBadge level={coverageLevel(americanFootball.coverage)} />}
         </div>
         <p className="mt-2 text-slate-400">
@@ -105,8 +106,8 @@ export function AmericanFootballView({ initialTab = 'coverage' }: { initialTab?:
               error={status.error}
               isEmpty={!americanFootball}
               onRetry={status.reload}
-              emptyTitle="La NFL no está registrada"
-              emptyHint="El deporte NFL no está presente en la fuente de datos."
+              emptyTitle={`${AMERICAN_FOOTBALL_SPORT_LABEL} no está registrado`}
+              emptyHint={`El deporte ${AMERICAN_FOOTBALL_SPORT_LABEL} no está presente en la fuente de datos.`}
             >
               {americanFootball && (
                 <Card>
@@ -140,7 +141,7 @@ export function AmericanFootballView({ initialTab = 'coverage' }: { initialTab?:
               error={leagues.error}
               isEmpty={(leagues.data?.data.length ?? 0) === 0}
               onRetry={leagues.reload}
-              emptyTitle="Aún no hay datos de la NFL cargados"
+              emptyTitle={`Aún no hay datos de ${AMERICAN_FOOTBALL_SPORT_LABEL} cargados`}
               emptyHint="Usa la pestaña Carga de datos para registrar ligas, equipos, partidos y clasificación."
               emptyAction={<AmericanFootballLoaderLink />}
             >

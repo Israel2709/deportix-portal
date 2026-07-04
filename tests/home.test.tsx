@@ -49,12 +49,12 @@ describe('HomeView', () => {
     ]);
     render(<HomeView />);
     expect(await screen.findByRole('heading', { name: 'Soccer' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'NFL' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Football americano' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Soccer' }).closest('a')).toHaveAttribute(
       'href',
       '/deportes/soccer',
     );
-    expect(screen.getByRole('heading', { name: 'NFL' }).closest('a')).toHaveAttribute(
+    expect(screen.getByRole('heading', { name: 'Football americano' }).closest('a')).toHaveAttribute(
       'href',
       '/american-football',
     );

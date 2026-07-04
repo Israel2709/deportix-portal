@@ -7,7 +7,7 @@ import { collection, installFetch, resource } from './helpers/mock-fetch';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('AmericanFootballView — progressive coverage with no data', () => {
-  it('shows "no data loaded yet" when NFL has no leagues', async () => {
+  it('shows "no data loaded yet" when american football has no leagues', async () => {
     installFetch([
       {
         match: '/v1/data-status',
@@ -33,8 +33,8 @@ describe('AmericanFootballView — progressive coverage with no data', () => {
       </ToastProvider>,
     );
 
-    expect(await screen.findByRole('heading', { name: 'NFL' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Football americano' })).toBeInTheDocument();
     expect(await screen.findByText('Sin datos cargados aún')).toBeInTheDocument();
-    expect(await screen.findByText(/Aún no hay datos de la NFL cargados/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Aún no hay datos de Football americano cargados/i)).toBeInTheDocument();
   });
 });

@@ -21,7 +21,7 @@ export function AmericanFootballLeaguesBrowse() {
   return (
     <section className="space-y-4">
       <div>
-        <SectionTitle>Ligas NFL</SectionTitle>
+        <SectionTitle>Ligas</SectionTitle>
         <p className="text-sm text-slate-400">
           Selecciona una liga para ver temporadas y partidos cargados en el portal.
         </p>
@@ -46,7 +46,7 @@ export function AmericanFootballLeaguesBrowse() {
         emptyTitle={
           query.trim()
             ? 'Ninguna liga coincide con la búsqueda'
-            : 'Aún no hay ligas NFL cargadas'
+            : 'Aún no hay ligas cargadas'
         }
         emptyHint={
           query.trim()

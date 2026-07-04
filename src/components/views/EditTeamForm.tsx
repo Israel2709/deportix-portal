@@ -11,6 +11,7 @@ import type { ApiResource, Team } from '@/lib/types';
 import { applyTeamPatch } from '@/lib/team-edits';
 import { patchTeamApi } from '@/lib/team-api';
 import { useTeamOverrides } from '@/lib/use-team-overrides';
+import { AMERICAN_FOOTBALL_SPORT_LABEL } from '@/lib/sports';
 import {
   TEAM_FORM_FIELD_LABELS,
   formValuesToPatch,
@@ -231,7 +232,7 @@ export function EditTeamView({ leagueId, teamId }: { leagueId: string; teamId: s
 
           {americanFootballFields.length > 0 && (
             <div>
-              <SectionTitle>NFL</SectionTitle>
+              <SectionTitle>{AMERICAN_FOOTBALL_SPORT_LABEL}</SectionTitle>
               <div className="grid gap-4 sm:grid-cols-2">
                 {americanFootballFields.map((field) => (
                   <FieldInput

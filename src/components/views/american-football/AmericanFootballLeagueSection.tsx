@@ -111,7 +111,7 @@ export function AmericanFootballLeagueSection({
     <AmericanFootballFormShell
       step={step}
       title="Ligas"
-      description="Crea la liga NFL con temporadas anidadas y cobertura api-sports."
+      description="Crea una liga con temporadas anidadas y cobertura api-sports."
       mode={state.mode}
       onModeChange={(mode) => {
         state.setMode(mode);

@@ -107,7 +107,7 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
     <div className="space-y-8">
       <nav className="text-sm">
         <Link href={americanFootballTabPath('browse')} className="text-blue-400 hover:text-blue-300">
-          ← Ligas NFL
+          ← Ligas
         </Link>
       </nav>
 
@@ -166,7 +166,7 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
                     columns={matchColumns}
                     rows={sortedMatches}
                     rowKey={(row) => row.id}
-                    caption={`Partidos NFL ${selectedYear}`}
+                    caption={`Partidos ${selectedYear}`}
                   />
                 </DataSection>
               </section>

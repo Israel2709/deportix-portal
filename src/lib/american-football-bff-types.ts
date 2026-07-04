@@ -8,11 +8,8 @@ export interface AmericanFootballEnvelope<T> {
   response: T[];
 }
 
-export interface AmericanFootballCountryItem {
-  name: string;
-  code?: string | null;
-  flag?: string | null;
-}
+/** @deprecated Use CatalogCountry from catalog-types — same global catalog for all sports. */
+export type { CatalogCountry as AmericanFootballCountryItem } from './catalog-types';
 
 export interface AmericanFootballLeagueSeasonCoverage {
   games?: {

@@ -45,7 +45,7 @@ describe('AmericanFootballLeaguesBrowse', () => {
 
     render(<AmericanFootballLeaguesBrowse />);
 
-    expect(await screen.findByText('Aún no hay ligas NFL cargadas')).toBeInTheDocument();
+    expect(await screen.findByText('Aún no hay ligas cargadas')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ir a carga de datos' })).toHaveAttribute(
       'href',
       '/american-football?tab=loader',

@@ -1,6 +1,5 @@
 import { ApiClientError, apiDelete, apiGet, apiPatch, apiPost } from './api';
 import type {
-  AmericanFootballCountryItem,
   AmericanFootballEnvelope,
   AmericanFootballGameItem,
   AmericanFootballLeagueItem,
@@ -51,23 +50,7 @@ async function americanFootballRequest<T>(
   return { get: '', parameters: [], errors: [], results: 0, response: [] };
 }
 
-// --- Countries ---
-
-export async function getAmericanFootballCountries(name?: string): Promise<AmericanFootballEnvelope<AmericanFootballCountryItem>> {
-  return americanFootballRequest('GET', `/american-football/countries${buildQuery({ name })}`);
-}
-
-export async function createAmericanFootballCountry(body: AmericanFootballCountryItem): Promise<AmericanFootballEnvelope<AmericanFootballCountryItem>> {
-  return americanFootballRequest('POST', '/american-football/countries', body);
-}
-
-export async function updateAmericanFootballCountry(body: AmericanFootballCountryItem): Promise<AmericanFootballEnvelope<AmericanFootballCountryItem>> {
-  return americanFootballRequest('PATCH', '/american-football/countries', body);
-}
-
-export async function deleteAmericanFootballCountry(body: AmericanFootballCountryItem): Promise<void> {
-  await americanFootballRequest('DELETE', '/american-football/countries', body);
-}
+// Country CRUD: use `@/lib/catalog-api` (GET/POST/PATCH/DELETE /v1/countries) — global catalog shared by all sports.
 
 // --- Leagues ---
 

@@ -6,7 +6,7 @@ import type { ApiResource, DataStatus, Health } from '@/lib/types';
 import { Card, CoverageBadge, ResourceDot, SectionTitle, coverageLevel } from '@/components/ui/Ui';
 import { DataSection } from '@/components/states/States';
 import { formatDateTime } from '@/lib/format';
-import { sportPath } from '@/lib/sports';
+import { sportPath, sportDisplayName, AMERICAN_FOOTBALL_SPORT_LABEL } from '@/lib/sports';
 
 export function HomeView() {
   const status = useApi<ApiResource<DataStatus>>('/v1/data-status');
@@ -30,7 +30,7 @@ export function HomeView() {
             Liga MX
           </Link>
           <Link href="/american-football" className="rounded-md bg-slate-800 px-3 py-1.5 text-slate-200 hover:bg-slate-700">
-            NFL
+            {AMERICAN_FOOTBALL_SPORT_LABEL}
           </Link>
           <Link href="/explorer" className="rounded-md bg-slate-800 px-3 py-1.5 text-slate-200 hover:bg-slate-700">
             Explorador de API
@@ -70,7 +70,9 @@ export function HomeView() {
               >
                 <Card className="transition hover:border-blue-500/40">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-slate-100">{sport.name ?? sport.slug}</h3>
+                    <h3 className="font-semibold text-slate-100">
+                      {sportDisplayName(sport.slug ?? sport.id, sport.name)}
+                    </h3>
                     <CoverageBadge level={coverageLevel(sport.coverage)} />
                   </div>
                   <p className="mt-1 text-sm text-slate-400">{sport.leagueCount} ligas</p>

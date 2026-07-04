@@ -90,7 +90,7 @@ export function AmericanFootballSeasonSection({
     <AmericanFootballFormShell
       step={step}
       title="Temporadas"
-      description="Registra o elimina temporadas para una liga NFL concreta (ID externo api-sports, p. ej. 1)."
+      description="Registra o elimina temporadas para una liga concreta (ID externo api-sports, p. ej. 1 para NFL)."
       mode={state.mode}
       onModeChange={(mode) => {
         state.setMode(mode);

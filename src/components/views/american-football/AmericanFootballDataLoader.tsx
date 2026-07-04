@@ -30,7 +30,7 @@ export function AmericanFootballDataLoader({ onDataChanged }: { onDataChanged?: 
     <div className="space-y-6">
       <Card className="border-blue-500/20 bg-blue-950/20">
         <p className="text-sm text-slate-200">
-          <strong className="text-blue-300">Orden recomendado:</strong> países (opcional) → ligas →
+          <strong className="text-blue-300">Orden recomendado:</strong> países (opcional, catálogo global) → ligas →
           temporadas → equipos → partidos → clasificación. Los bodies deben coincidir exactamente con
           api-sports — campos extra serán rechazados.
         </p>
@@ -44,7 +44,7 @@ export function AmericanFootballDataLoader({ onDataChanged }: { onDataChanged?: 
           >
             {getApiBaseUrl()}/docs
           </a>{' '}
-          (tag BFF NFL)
+          (tag BFF American Football)
         </p>
       </Card>
 

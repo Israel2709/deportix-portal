@@ -36,13 +36,13 @@ describe('AmericanFootballView tabs and loader', () => {
       statusRoute,
       { match: '/v1/leagues', body: collection([]) },
       {
-        match: '/american-football/countries',
-        body: { get: 'countries', parameters: [], errors: [], results: 0, response: [] },
+        match: '/v1/countries',
+        body: collection([]),
       },
     ]);
 
     renderAmericanFootball();
-    expect(await screen.findByRole('heading', { name: 'NFL' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Football americano' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Carga de datos' }));
     expect(await screen.findByText(/Orden recomendado/i)).toBeInTheDocument();
@@ -53,7 +53,7 @@ describe('AmericanFootballView tabs and loader', () => {
     installFetch([statusRoute, { match: '/v1/leagues', body: collection([]) }]);
 
     renderAmericanFootball();
-    expect(await screen.findByText(/Aún no hay datos de la NFL cargados/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Aún no hay datos de Football americano cargados/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ir a carga de datos' })).toBeInTheDocument();
   });
 
@@ -63,21 +63,16 @@ describe('AmericanFootballView tabs and loader', () => {
       vi.fn(async (input: unknown, init?: RequestInit) => {
         const url = String(input);
         const method = init?.method ?? 'GET';
-        let body: unknown = { get: 'countries', parameters: [], errors: [], results: 0, response: [] };
+        let body: unknown = collection([]);
         if (url.includes('/v1/data-status')) body = statusRoute.body;
         if (url.includes('/v1/leagues')) body = collection([]);
-        if (url.includes('/american-football/countries') && method === 'POST') {
-          body = {
-            get: 'countries',
-            parameters: [],
-            errors: [],
-            results: 1,
-            response: [{ name: 'USA', code: 'US', flag: null }],
-          };
+        if (url.includes('/v1/countries') && method === 'GET') body = collection([]);
+        if (url.includes('/v1/countries') && method === 'POST') {
+          body = resource({ name: 'USA', code: 'US', flag: null });
         }
         return {
           ok: true,
-          status: method === 'POST' ? 200 : 200,
+          status: method === 'POST' ? 201 : 200,
           text: async () => JSON.stringify(body),
           headers: { get: () => null },
         } as unknown as Response;
@@ -85,7 +80,7 @@ describe('AmericanFootballView tabs and loader', () => {
     );
 
     renderAmericanFootball();
-    await screen.findByRole('heading', { name: 'NFL' });
+    await screen.findByRole('heading', { name: 'Football americano' });
     fireEvent.click(screen.getByRole('button', { name: 'Carga de datos' }));
     await screen.findByText(/Orden recomendado/i);
 
