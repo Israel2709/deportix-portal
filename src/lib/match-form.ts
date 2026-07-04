@@ -113,6 +113,52 @@ export function resolveMatchVenue(values: MatchFormValues, homeTeam: Team | unde
   return homeTeam?.venue?.name?.trim() ?? null;
 }
 
+export interface MatchCreateBody {
+  seasonId?: string;
+  date: string;
+  status?: string;
+  round?: string;
+  venue?: string;
+  home: { teamId: string; score?: number | null };
+  away: { teamId: string; score?: number | null };
+}
+
+export interface MatchCreateContext {
+  seasonId?: string | null;
+}
+
+/** Maps the add-match form to POST /v1/leagues/{leagueId}/matches. */
+export function buildMatchCreateBodyFromForm(
+  values: MatchFormValues,
+  teams: Team[],
+  context: MatchCreateContext = {},
+): MatchCreateBody | string {
+  const validationError = validateMatchForm(values);
+  if (validationError) return validationError;
+
+  const date = toIsoDate(values.date)!;
+  const homeTeam = teams.find((team) => team.id === values.homeTeamId);
+  const homeScore = parseOptionalScore(values.homeScore);
+  const awayScore = parseOptionalScore(values.awayScore);
+  const venue = resolveMatchVenue(values, homeTeam);
+
+  const body: MatchCreateBody = {
+    date,
+    status: values.status,
+    home: { teamId: values.homeTeamId },
+    away: { teamId: values.awayTeamId },
+  };
+
+  if (context.seasonId) body.seasonId = context.seasonId;
+
+  if (values.round.trim()) body.round = values.round.trim();
+  if (venue) body.venue = venue;
+  if (homeScore !== null) body.home.score = homeScore;
+  if (awayScore !== null) body.away.score = awayScore;
+
+  return body;
+}
+
 export function buildMatchFromForm(
   values: MatchFormValues,
   context: MatchFormContext,

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiGet } from './api';
+import { sortMatchesByDateAsc } from './match-sort';
 import type { ApiCollection, Match } from './types';
 
 const PAGE_SIZE = 100;
@@ -38,6 +39,22 @@ export function useAllMatches(
     if (updates.length === 0) return;
     const byId = new Map(updates.map((match) => [match.id, match]));
     setData((current) => current.map((match) => byId.get(match.id) ?? match));
+  }, []);
+
+  const removeMatches = useCallback((matchIds: string[]) => {
+    if (matchIds.length === 0) return;
+    const ids = new Set(matchIds);
+    setData((current) => current.filter((match) => !ids.has(match.id)));
+  }, []);
+
+  const appendMatches = useCallback((matches: Match[]) => {
+    if (matches.length === 0) return;
+    setData((current) => {
+      const ids = new Set(current.map((match) => match.id));
+      const toAdd = matches.filter((match) => !ids.has(match.id));
+      if (toAdd.length === 0) return current;
+      return sortMatchesByDateAsc([...current, ...toAdd]);
+    });
   }, []);
 
   useEffect(() => {
@@ -86,5 +103,5 @@ export function useAllMatches(
     };
   }, [leagueId, seasonYear, nonce, enabled]);
 
-  return { data, error, loading, reload, applyUpdates };
+  return { data, error, loading, reload, applyUpdates, removeMatches, appendMatches };
 }

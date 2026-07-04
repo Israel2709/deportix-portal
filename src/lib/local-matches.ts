@@ -45,6 +45,15 @@ export function updateLocalMatch(
   );
 }
 
+export function removeLocalMatch(leagueId: string, seasonId: string, matchId: string): void {
+  const matches = readLocalMatches(leagueId, seasonId);
+  writeLocalMatches(
+    leagueId,
+    seasonId,
+    matches.filter((match) => match.id !== matchId),
+  );
+}
+
 export function isLocalMatch(match: Match): boolean {
   return match.id.startsWith('local_');
 }

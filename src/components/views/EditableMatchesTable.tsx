@@ -23,14 +23,17 @@ export function EditableMatchesTable({
   matches,
   resetKey,
   onSave,
+  onDelete,
 }: {
   matches: Match[];
   resetKey: string;
   onSave: (edits: Record<string, MatchEditPatch>) => string | null | Promise<string | null>;
+  onDelete: (matchId: string) => string | null | Promise<string | null>;
 }) {
   const [drafts, setDrafts] = useState<Record<string, MatchRowDraft>>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     setDrafts({});
@@ -89,6 +92,33 @@ export function EditableMatchesTable({
     }
   }
 
+  async function handleDelete(match: Match) {
+    const label = `${match.home.name ?? 'Local'} vs ${match.away.name ?? 'Visitante'}`;
+    if (!window.confirm(`¿Eliminar el partido ${label}? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    setDeletingId(match.id);
+    setError(null);
+    try {
+      const deleteError = await onDelete(match.id);
+      if (deleteError) {
+        setError(deleteError);
+        return;
+      }
+
+      setDrafts((current) => {
+        const next = { ...current };
+        delete next[match.id];
+        return next;
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const isBusy = saving || deletingId !== null;
+
   if (matches.length === 0) return null;
 
   return (
@@ -111,7 +141,7 @@ export function EditableMatchesTable({
           <button
             type="button"
             onClick={handleDiscard}
-            disabled={saving}
+            disabled={isBusy}
             className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-900 disabled:opacity-60"
           >
             Descartar
@@ -147,6 +177,9 @@ export function EditableMatchesTable({
               <th scope="col" className="w-0 whitespace-nowrap px-3 py-2 font-medium">
                 Modificado
               </th>
+              <th scope="col" className="w-0 whitespace-nowrap px-3 py-2 text-center font-medium">
+                <span className="sr-only">Eliminar</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -175,7 +208,7 @@ export function EditableMatchesTable({
                       value={draft.status}
                       onChange={(event) => updateDraft(match.id, match, { status: event.target.value })}
                       className={inputClassName}
-                      disabled={saving}
+                      disabled={isBusy}
                     >
                       {MATCH_STATUS_OPTIONS.map((status) => (
                         <option key={status} value={status}>
@@ -201,7 +234,7 @@ export function EditableMatchesTable({
                         }
                         className={scoreInputClassName}
                         placeholder="–"
-                        disabled={saving}
+                        disabled={isBusy}
                       />
                       <span className="text-slate-500">:</span>
                       <input
@@ -218,7 +251,7 @@ export function EditableMatchesTable({
                         }
                         className={scoreInputClassName}
                         placeholder="–"
-                        disabled={saving}
+                        disabled={isBusy}
                       />
                     </div>
                   </td>
@@ -226,6 +259,17 @@ export function EditableMatchesTable({
                   <td className="px-3 py-2">{match.round ?? '—'}</td>
                   <td className="w-0 whitespace-nowrap px-3 py-2 text-slate-400">
                     {formatDateTimeShort(match.updatedAt)}
+                  </td>
+                  <td className="w-0 whitespace-nowrap px-3 py-2 text-center">
+                    <button
+                      type="button"
+                      aria-label={`Eliminar partido ${match.home.name ?? 'local'} vs ${match.away.name ?? 'visitante'}`}
+                      onClick={() => void handleDelete(match)}
+                      disabled={isBusy}
+                      className="rounded border border-red-500/40 px-2 py-1 text-xs font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-60"
+                    >
+                      {deletingId === match.id ? '…' : 'Eliminar'}
+                    </button>
                   </td>
                 </tr>
               );

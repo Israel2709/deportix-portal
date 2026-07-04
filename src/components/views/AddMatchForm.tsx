@@ -5,18 +5,21 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useApi } from '@/lib/use-api';
 import type { ApiCollection, ApiResource, League, Season, Team } from '@/lib/types';
-import { saveLocalMatch } from '@/lib/local-matches';
 import { leaguePath } from '@/lib/leagues';
 import {
   EMPTY_MATCH_FORM,
   MATCH_STATUS_LABELS,
   MATCH_STATUS_OPTIONS,
-  buildMatchFromForm,
+  buildMatchCreateBodyFromForm,
   formatMatchStatusOption,
   validateMatchForm,
   type MatchFormValues,
 } from '@/lib/match-form';
+import { createMatchApi } from '@/lib/match-api';
+import { stashCreatedMatch } from '@/lib/pending-created-match';
+import { ApiClientError } from '@/lib/api';
 import { venueNameForTeam } from '@/lib/venues';
+import { pickDefaultSeason } from '@/lib/seasons';
 import { Card, SectionTitle } from '@/components/ui/Ui';
 import { ErrorState, LoadingState } from '@/components/states/States';
 
@@ -39,17 +42,19 @@ export function AddMatchView({
   const [values, setValues] = useState<MatchFormValues>(EMPTY_MATCH_FORM);
   const [venueEditedByUser, setVenueEditedByUser] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const league = leagueRes.data?.data;
   const seasons = seasonsRes.data?.data ?? [];
   const teams = teamsRes.data?.data ?? [];
+  const currentSeason = useMemo(() => pickDefaultSeason(seasons), [seasons]);
 
   const selectedSeason = useMemo(() => {
     if (seasonYear !== null) {
       return seasons.find((season) => season.year === seasonYear) ?? null;
     }
-    return seasons.find((season) => season.current) ?? seasons[0] ?? null;
-  }, [seasons, seasonYear]);
+    return currentSeason;
+  }, [seasons, seasonYear, currentSeason]);
 
   const backHref = league
     ? leaguePath({ id: league.id, externalId: league.externalId })
@@ -73,7 +78,7 @@ export function AddMatchView({
     updateField('venue', value);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
@@ -88,18 +93,24 @@ export function AddMatchView({
       return;
     }
 
-    const match = buildMatchFromForm(
-      values,
-      {
-        sport: league.sport,
-        leagueId: league.id,
-        seasonId: selectedSeason.id,
-      },
-      teams,
-    );
+    const bodyOrError = buildMatchCreateBodyFromForm(values, teams, {
+      seasonId: selectedSeason.id,
+    });
+    if (typeof bodyOrError === 'string') {
+      setError(bodyOrError);
+      return;
+    }
 
-    saveLocalMatch(league.id, selectedSeason.id, match);
-    router.push(backHref);
+    setSubmitting(true);
+    try {
+      const created = await createMatchApi(leagueId, bodyOrError, selectedSeason.year);
+      stashCreatedMatch(created, selectedSeason.id);
+      router.push(backHref);
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : 'No se pudo crear el partido.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (leagueRes.loading || seasonsRes.loading || teamsRes.loading) {
@@ -127,8 +138,8 @@ export function AddMatchView({
         </Link>
         <h1 className="mt-3 text-2xl font-bold text-slate-50">Agregar partido</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Completa los datos del partido para complementar la información faltante. Los partidos
-          agregados se guardan localmente en este navegador y se muestran junto con los de la API.
+          Crea un partido en la temporada seleccionada. Se guardará en la base de datos y
+          aparecerá en el calendario junto con el resto de partidos de la API.
         </p>
         <p className="mt-2 text-xs text-slate-500">
           {league?.name ?? leagueId} · Temporada {selectedSeason.year ?? selectedSeason.externalId ?? selectedSeason.id}
@@ -149,6 +160,7 @@ export function AddMatchView({
                 value={values.date}
                 onChange={(event) => updateField('date', event.target.value)}
                 className={inputClassName}
+                disabled={submitting}
               />
             </div>
 
@@ -164,6 +176,7 @@ export function AddMatchView({
                   updateField('status', event.target.value as MatchFormValues['status'])
                 }
                 className={inputClassName}
+                disabled={submitting}
               >
                 {MATCH_STATUS_OPTIONS.map((status) => (
                   <option key={status} value={status}>
@@ -187,6 +200,7 @@ export function AddMatchView({
                 placeholder="Apertura - 1"
                 onChange={(event) => updateField('round', event.target.value)}
                 className={inputClassName}
+                disabled={submitting}
               />
             </div>
           </div>
@@ -204,6 +218,7 @@ export function AddMatchView({
                   value={values.homeTeamId}
                   onChange={(event) => handleHomeTeamChange(event.target.value)}
                   className={inputClassName}
+                  disabled={submitting}
                 >
                   <option value="">Selecciona un equipo</option>
                   {teams.map((team) => (
@@ -225,6 +240,7 @@ export function AddMatchView({
                   value={values.homeScore}
                   onChange={(event) => updateField('homeScore', event.target.value)}
                   className={inputClassName}
+                  disabled={submitting}
                 />
               </div>
             </div>
@@ -243,6 +259,7 @@ export function AddMatchView({
                   value={values.awayTeamId}
                   onChange={(event) => updateField('awayTeamId', event.target.value)}
                   className={inputClassName}
+                  disabled={submitting}
                 >
                   <option value="">Selecciona un equipo</option>
                   {teams.map((team) => (
@@ -264,6 +281,7 @@ export function AddMatchView({
                   value={values.awayScore}
                   onChange={(event) => updateField('awayScore', event.target.value)}
                   className={inputClassName}
+                  disabled={submitting}
                 />
               </div>
             </div>
@@ -280,6 +298,7 @@ export function AddMatchView({
               placeholder={values.homeTeamId ? 'Sede del equipo local' : 'Selecciona primero el local'}
               onChange={(event) => handleVenueChange(event.target.value)}
               className={inputClassName}
+              disabled={submitting}
             />
             <p className="mt-1 text-xs text-slate-500">
               Se completa con el estadio del local. Puedes editarla si el partido no se juega ahí.
@@ -291,9 +310,10 @@ export function AddMatchView({
           <div className="flex flex-wrap gap-3">
             <button
               type="submit"
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+              disabled={submitting}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
             >
-              Guardar partido
+              {submitting ? 'Guardando…' : 'Guardar partido'}
             </button>
             <Link
               href={backHref}

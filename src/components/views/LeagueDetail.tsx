@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApi } from '@/lib/use-api';
 import { useAllMatches } from '@/lib/use-all-matches';
 import type {
@@ -17,10 +17,10 @@ import { DataTable, SectionTitle, type Column } from '@/components/ui/Ui';
 import { DataSection, ErrorState, LoadingState } from '@/components/states/States';
 import { formatDateTime } from '@/lib/format';
 import { sortMatchesByDateAsc } from '@/lib/match-sort';
-import { isLocalMatch, updateLocalMatch } from '@/lib/local-matches';
+import { isLocalMatch, removeLocalMatch, updateLocalMatch } from '@/lib/local-matches';
 import { addMatchFormPath } from '@/lib/match-form';
 import { type MatchEditPatch } from '@/lib/match-edits';
-import { patchMatch } from '@/lib/match-api';
+import { deleteMatchApi, patchMatch } from '@/lib/match-api';
 import { ApiClientError } from '@/lib/api';
 import { useLocalMatches } from '@/lib/use-local-matches';
 import { applyTeamOverrides } from '@/lib/team-edits';
@@ -30,6 +30,7 @@ import { TeamMiniCard } from '@/components/teams/TeamMiniCard';
 import { LeagueSeasonSidebar } from '@/components/layout/LeagueSeasonSidebar';
 import { LigaMxSeasonSection } from '@/components/views/LigaMxSeasonSection';
 import { LIGA_MX_LEAGUE_ID } from '@/lib/liga-mx';
+import { consumeCreatedMatch } from '@/lib/pending-created-match';
 import { pickDefaultSeason } from '@/lib/seasons';
 
 export function LeagueDetail({
@@ -66,6 +67,16 @@ export function LeagueDetail({
   const teamsRes = useApi<ApiCollection<Team>>(`/v1/leagues/${id}/teams?pageSize=100`);
   const standingsRes = useApi<ApiCollection<Standing>>(standingsPath);
   const matchesRes = useAllMatches(leagueId, selectedYear);
+
+  useEffect(() => {
+    const pending = consumeCreatedMatch();
+    if (!pending) return;
+
+    if (pending.seasonId) {
+      setSelectedSeasonId(pending.seasonId);
+    }
+    matchesRes.appendMatches([pending.match]);
+  }, [matchesRes.appendMatches]);
 
   const league = leagueRes.data?.data;
   const { matches: localMatches, reload: reloadLocalMatches } = useLocalMatches(
@@ -131,6 +142,29 @@ export function LeagueDetail({
     } catch (err) {
       if (err instanceof ApiClientError) return err.message;
       return 'No se pudo guardar los cambios.';
+    }
+  }
+
+  async function handleDeleteMatch(matchId: string): Promise<string | null> {
+    if (!league?.id || !selectedSeason?.id) {
+      return 'No se pudo eliminar el partido.';
+    }
+
+    const match = sortedMatches.find((entry) => entry.id === matchId);
+    if (!match) return 'No se encontró el partido.';
+
+    try {
+      if (isLocalMatch(match)) {
+        removeLocalMatch(league.id, selectedSeason.id, matchId);
+        reloadLocalMatches();
+      } else {
+        await deleteMatchApi(leagueId, matchId);
+        matchesRes.removeMatches([matchId]);
+      }
+      return null;
+    } catch (err) {
+      if (err instanceof ApiClientError) return err.message;
+      return 'No se pudo eliminar el partido.';
     }
   }
 
@@ -221,6 +255,7 @@ export function LeagueDetail({
                 matches={sortedMatches}
                 resetKey={`${league?.id ?? leagueId}:${selectedSeason?.id ?? 'none'}`}
                 onSave={handleSaveMatchEdits}
+                onDelete={handleDeleteMatch}
               />
             </DataSection>
           </section>

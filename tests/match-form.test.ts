@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildMatchCreateBodyFromForm,
   buildMatchFromForm,
   validateMatchForm,
   EMPTY_MATCH_FORM,
@@ -8,7 +9,7 @@ import {
   MATCH_STATUS_LABELS,
   resolveMatchVenue,
 } from '@/lib/match-form';
-import { readLocalMatches, saveLocalMatch } from '@/lib/local-matches';
+import { readLocalMatches, removeLocalMatch, saveLocalMatch } from '@/lib/local-matches';
 import type { Team } from '@/lib/types';
 
 const teams: Team[] = [
@@ -91,6 +92,37 @@ describe('match form', () => {
     expect(addMatchFormPath('262', 2025)).toBe('/leagues/262/partidos/nuevo?season=2025');
   });
 
+  it('maps form values to the POST /matches body', () => {
+    const body = buildMatchCreateBodyFromForm(
+      {
+        ...EMPTY_MATCH_FORM,
+        date: '2026-07-01T20:00',
+        status: 'NS',
+        round: 'Apertura - 1',
+        venue: 'Azteca',
+        homeTeamId: 't1',
+        homeScore: '2',
+        awayTeamId: 't2',
+        awayScore: '1',
+      },
+      teams,
+      { seasonId: 'se25' },
+    );
+
+    expect(typeof body).toBe('object');
+    expect(body).toMatchObject({
+      seasonId: 'se25',
+      status: 'NS',
+      round: 'Apertura - 1',
+      venue: 'Azteca',
+      home: { teamId: 't1', score: 2 },
+      away: { teamId: 't2', score: 1 },
+    });
+    if (typeof body === 'object' && body !== null && 'date' in body) {
+      expect(String(body.date)).toMatch(/^2026-07-0[12]T/);
+    }
+  });
+
   it('formats status options with Spanish labels', () => {
     expect(formatMatchStatusOption('NS')).toBe('NS — No iniciado');
     expect(MATCH_STATUS_LABELS.FT).toBe('Finalizado');
@@ -136,5 +168,23 @@ describe('local matches storage', () => {
     saveLocalMatch('lg_mx', 'se25', match);
     expect(readLocalMatches('lg_mx', 'se25')).toHaveLength(1);
     expect(readLocalMatches('lg_mx', 'se26')).toHaveLength(0);
+  });
+
+  it('removes a local match from storage', () => {
+    localStorage.clear();
+    const match = buildMatchFromForm(
+      {
+        ...EMPTY_MATCH_FORM,
+        date: '2026-07-01T20:00',
+        homeTeamId: 't1',
+        awayTeamId: 't2',
+      },
+      { sport: 'soccer', leagueId: 'lg_mx', seasonId: 'se25' },
+      teams,
+    );
+
+    saveLocalMatch('lg_mx', 'se25', match);
+    removeLocalMatch('lg_mx', 'se25', match.id);
+    expect(readLocalMatches('lg_mx', 'se25')).toHaveLength(0);
   });
 });

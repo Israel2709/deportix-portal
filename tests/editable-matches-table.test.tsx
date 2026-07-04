@@ -21,7 +21,12 @@ const match: Match = {
 describe('EditableMatchesTable', () => {
   it('shows typed score values in the inputs', () => {
     render(
-      <EditableMatchesTable matches={[match]} resetKey="lg_mx:se25" onSave={vi.fn(() => null)} />,
+      <EditableMatchesTable
+        matches={[match]}
+        resetKey="lg_mx:se25"
+        onSave={vi.fn(() => null)}
+        onDelete={vi.fn(() => null)}
+      />,
     );
 
     const homeInput = screen.getByLabelText(/Goles de América/i) as HTMLInputElement;
@@ -38,6 +43,7 @@ describe('EditableMatchesTable', () => {
         matches={[match]}
         resetKey="lg_mx:se25"
         onSave={onSave}
+        onDelete={vi.fn(() => null)}
       />,
     );
 
@@ -62,5 +68,23 @@ describe('EditableMatchesTable', () => {
         awayScore: 1,
       },
     });
+  });
+
+  it('calls onDelete after confirming removal', async () => {
+    const onDelete = vi.fn(() => null);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(
+      <EditableMatchesTable
+        matches={[match]}
+        resetKey="lg_mx:se25"
+        onSave={vi.fn(() => null)}
+        onDelete={onDelete}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Eliminar partido América vs Chivas/i }));
+
+    expect(onDelete).toHaveBeenCalledWith('api_1');
   });
 });

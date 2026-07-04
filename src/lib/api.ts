@@ -126,6 +126,26 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return parsed as T;
 }
 
+/** Typed DELETE that throws an ApiClientError on a non-2xx response. */
+export async function apiDelete(path: string): Promise<void> {
+  const res = await apiFetch(path, { method: 'DELETE' });
+  if (res.status === 204) return;
+  const body = await readJsonResponse(res);
+  if (!res.ok) throwApiError(res, body);
+}
+
+/** Typed POST that throws an ApiClientError on a non-2xx response. */
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await apiFetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const parsed = await readJsonResponse(res);
+  if (!res.ok) throwApiError(res, parsed);
+  return parsed as T;
+}
+
 /** Endpoints the API Explorer is allowed to call (no arbitrary URLs). */
 export interface ExplorerEndpoint {
   id: string;
