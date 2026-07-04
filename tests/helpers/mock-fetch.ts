@@ -11,7 +11,7 @@ export interface MockRoute {
 
 /** Install a global.fetch mock that routes by URL substring. */
 export function installFetch(routes: MockRoute[]) {
-  const fn = vi.fn(async (input: unknown) => {
+  const fn = vi.fn(async (input: unknown, init?: RequestInit) => {
     const url = String(input);
     const route = routes.find((r) => url.includes(r.match));
     if (!route) throw new Error(`No mock route for ${url}`);

@@ -50,6 +50,10 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
 - Reusable UI in `src/components/ui` + state components in `src/components/states`.
 - No Firebase dependency of any kind — the portal is a pure API consumer.
 
+## Documentación interna
+
+- **[NFL — endpoints, contratos y shapes BFF](docs/nfl-segment.md)** — guía para cargar datos NFL vía `/nfl/*` (POST/PATCH/DELETE) con shapes api-sports.
+
 ## Deploy to Vercel
 
 1. New Vercel project from this directory (framework **Next.js**, auto-detected).

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { ToastProvider } from '@/components/notifications/ToastProvider';
 import { NflView } from '@/components/views/NflView';
 import { collection, installFetch, resource } from './helpers/mock-fetch';
 
@@ -26,12 +27,14 @@ describe('NflView — progressive coverage with no data', () => {
       { match: '/v1/leagues', body: collection([]) },
     ]);
 
-    render(<NflView />);
+    render(
+      <ToastProvider>
+        <NflView />
+      </ToastProvider>,
+    );
 
     expect(await screen.findByRole('heading', { name: 'NFL' })).toBeInTheDocument();
-    // Coverage badge for an all-false sport.
     expect(await screen.findByText('Sin datos cargados aún')).toBeInTheDocument();
-    // Empty, non-alarmist message for the teams/competitions section.
     expect(await screen.findByText(/Aún no hay datos de la NFL cargados/i)).toBeInTheDocument();
   });
 });

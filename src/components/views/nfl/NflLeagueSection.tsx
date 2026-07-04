@@ -1,0 +1,215 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import {
+  createNflLeague,
+  deleteNflLeague,
+  getNflLeagues,
+  updateNflLeague,
+} from '@/lib/nfl-api';
+import type { NflLeagueItem } from '@/lib/nfl-bff-types';
+import {
+  DEFAULT_NFL_LEAGUE_SEASON,
+  EMPTY_NFL_LEAGUE_FORM,
+  buildNflLeagueBody,
+  leagueToFormValues,
+  validateNflLeagueForm,
+  type NflLeagueSeasonFormValues,
+} from '@/lib/nfl-forms/league-form';
+import { NFL_BUTTON_SECONDARY } from '@/lib/nfl-forms/shared';
+import {
+  NflCheckboxField,
+  NflFieldGrid,
+  NflFormShell,
+  NflRowActions,
+  NflTextField,
+} from './NflFormShell';
+import { submitLabelForMode, useNflSectionState } from './useNflSectionState';
+
+export function NflLeagueSection({ step }: { step: number }) {
+  const state = useNflSectionState(EMPTY_NFL_LEAGUE_FORM);
+  const [rows, setRows] = useState<NflLeagueItem[]>([]);
+  const [loadingList, setLoadingList] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoadingList(true);
+      try {
+        const envelope = await getNflLeagues();
+        if (!cancelled) setRows(envelope.response);
+      } catch {
+        if (!cancelled) setRows([]);
+      } finally {
+        if (!cancelled) setLoadingList(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.listKey]);
+
+  function updateSeason(index: number, patch: Partial<NflLeagueSeasonFormValues>) {
+    state.setValues((current) => ({
+      ...current,
+      seasons: current.seasons.map((s, i) => (i === index ? { ...s, ...patch } : s)),
+    }));
+  }
+
+  async function handleSubmit() {
+    if (state.mode === 'query') {
+      state.reloadList();
+      state.toast.info('Consulta actualizada');
+      return;
+    }
+
+    const validation = validateNflLeagueForm(
+      state.values,
+      state.mode === 'edit' ? 'edit' : state.mode === 'delete' ? 'delete' : 'create',
+    );
+    if (validation) {
+      state.toast.error('Validación', validation);
+      return;
+    }
+
+    if (state.mode === 'delete' && !state.confirmDelete) {
+      state.setConfirmDelete(`¿Eliminar la liga con ID ${state.values.externalId}?`);
+      return;
+    }
+
+    state.setSubmitting(true);
+    try {
+      if (state.mode === 'create') {
+        const res = await createNflLeague(buildNflLeagueBody(state.values));
+        state.handleSuccess('Liga creada', res.results);
+        state.setValues(EMPTY_NFL_LEAGUE_FORM);
+      } else if (state.mode === 'edit') {
+        const res = await updateNflLeague(state.values.externalId, buildNflLeagueBody(state.values));
+        state.handleSuccess('Liga actualizada', res.results);
+      } else if (state.mode === 'delete') {
+        await deleteNflLeague(state.values.externalId);
+        state.handleSuccess('Liga eliminada');
+        state.setConfirmDelete(null);
+      }
+    } catch (err) {
+      state.handleError(err, 'No se pudo completar la operación.');
+      state.setConfirmDelete(null);
+    } finally {
+      state.setSubmitting(false);
+    }
+  }
+
+  return (
+    <NflFormShell
+      step={step}
+      title="Ligas"
+      description="Crea la liga NFL con temporadas anidadas y cobertura api-sports."
+      mode={state.mode}
+      onModeChange={(mode) => {
+        state.setMode(mode);
+        state.setConfirmDelete(null);
+      }}
+      onSubmit={() => void handleSubmit()}
+      submitting={state.submitting}
+      submitLabel={submitLabelForMode(state.mode)}
+      confirmDelete={state.confirmDelete}
+      onConfirmDelete={() => void handleSubmit()}
+      onCancelDelete={() => state.setConfirmDelete(null)}
+      listTitle={loadingList ? 'Cargando…' : `${rows.length} liga(s)`}
+      listContent={
+        rows.length === 0 ? (
+          <p className="text-sm text-slate-500">Sin ligas.</p>
+        ) : (
+          <ul className="space-y-2">
+            {rows.map((row) => (
+              <li
+                key={String(row.league.id)}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-800 px-3 py-2 text-sm"
+              >
+                <span className="text-slate-200">
+                  {row.league.name} (id {row.league.id}) · {row.seasons.length} temp.
+                </span>
+                <NflRowActions
+                  onEdit={() => {
+                    state.setMode('edit');
+                    state.setValues(leagueToFormValues(row));
+                  }}
+                  onDelete={() => {
+                    state.setMode('delete');
+                    state.setValues({ ...leagueToFormValues(row), externalId: String(row.league.id) });
+                  }}
+                />
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    >
+      {(state.mode === 'edit' || state.mode === 'delete') && (
+        <NflTextField
+          label="ID externo (api-sports)"
+          value={state.values.externalId}
+          onChange={(v) => state.updateField('externalId', v)}
+        />
+      )}
+      {state.mode !== 'delete' && state.mode !== 'query' && (
+        <>
+          <NflFieldGrid>
+            <NflTextField label="ID liga" value={state.values.leagueId} onChange={(v) => state.updateField('leagueId', v)} />
+            <NflTextField label="Nombre" value={state.values.leagueName} onChange={(v) => state.updateField('leagueName', v)} />
+            <NflTextField label="Tipo" value={state.values.leagueType} onChange={(v) => state.updateField('leagueType', v)} />
+            <NflTextField label="Logo (URL)" value={state.values.leagueLogo} onChange={(v) => state.updateField('leagueLogo', v)} />
+          </NflFieldGrid>
+          <p className="text-sm font-medium text-slate-200">País</p>
+          <NflFieldGrid>
+            <NflTextField label="Nombre" value={state.values.countryName} onChange={(v) => state.updateField('countryName', v)} />
+            <NflTextField label="Código" value={state.values.countryCode} onChange={(v) => state.updateField('countryCode', v)} />
+            <NflTextField label="Bandera (URL)" value={state.values.countryFlag} onChange={(v) => state.updateField('countryFlag', v)} />
+          </NflFieldGrid>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-slate-200">Temporadas</p>
+              <button
+                type="button"
+                className={NFL_BUTTON_SECONDARY}
+                onClick={() =>
+                  state.setValues((c) => ({
+                    ...c,
+                    seasons: [...c.seasons, { ...DEFAULT_NFL_LEAGUE_SEASON }],
+                  }))
+                }
+              >
+                Agregar temporada
+              </button>
+            </div>
+            {state.values.seasons.map((season, index) => (
+              <div key={index} className="rounded-md border border-slate-800 p-4 space-y-3">
+                <p className="text-xs text-slate-400">Temporada {index + 1}</p>
+                <NflFieldGrid>
+                  <NflTextField label="Año" value={season.year} onChange={(v) => updateSeason(index, { year: v })} />
+                  <NflTextField label="Inicio" value={season.start} onChange={(v) => updateSeason(index, { start: v })} type="date" />
+                  <NflTextField label="Fin" value={season.end} onChange={(v) => updateSeason(index, { end: v })} type="date" />
+                </NflFieldGrid>
+                <NflCheckboxField
+                  label="Temporada actual"
+                  checked={season.current}
+                  onChange={(checked) => updateSeason(index, { current: checked })}
+                />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <NflCheckboxField label="Eventos de partidos" checked={season.coverageGamesEvents} onChange={(c) => updateSeason(index, { coverageGamesEvents: c })} />
+                  <NflCheckboxField label="Estadísticas equipos" checked={season.coverageGamesTeamStats} onChange={(c) => updateSeason(index, { coverageGamesTeamStats: c })} />
+                  <NflCheckboxField label="Estadísticas jugadores (partido)" checked={season.coverageGamesPlayerStats} onChange={(c) => updateSeason(index, { coverageGamesPlayerStats: c })} />
+                  <NflCheckboxField label="Estadísticas jugadores (temporada)" checked={season.coverageSeasonPlayerStats} onChange={(c) => updateSeason(index, { coverageSeasonPlayerStats: c })} />
+                  <NflCheckboxField label="Jugadores" checked={season.coveragePlayers} onChange={(c) => updateSeason(index, { coveragePlayers: c })} />
+                  <NflCheckboxField label="Lesiones" checked={season.coverageInjuries} onChange={(c) => updateSeason(index, { coverageInjuries: c })} />
+                  <NflCheckboxField label="Clasificación" checked={season.coverageStandings} onChange={(c) => updateSeason(index, { coverageStandings: c })} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </NflFormShell>
+  );
+}

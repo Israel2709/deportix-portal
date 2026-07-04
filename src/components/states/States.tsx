@@ -37,15 +37,18 @@ export function EmptyState({
   title,
   hint,
   children,
+  action,
 }: {
   title: string;
   hint?: string;
   children?: ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <div className="rounded-lg border border-dashed border-slate-700 bg-slate-900/30 p-6 text-sm">
       <p className="font-medium text-slate-200">{title}</p>
       {hint && <p className="mt-1 text-slate-400">{hint}</p>}
+      {action && <div className="mt-3">{action}</div>}
       {children && <div className="mt-3">{children}</div>}
     </div>
   );
@@ -63,6 +66,7 @@ export function DataSection({
   loadingLabel,
   emptyTitle,
   emptyHint,
+  emptyAction,
   children,
 }: {
   loading: boolean;
@@ -72,10 +76,11 @@ export function DataSection({
   loadingLabel?: string;
   emptyTitle: string;
   emptyHint?: string;
+  emptyAction?: ReactNode;
   children: ReactNode;
 }) {
   if (loading) return <LoadingState label={loadingLabel} />;
   if (error) return <ErrorState message={error} onRetry={onRetry} />;
-  if (isEmpty) return <EmptyState title={emptyTitle} hint={emptyHint} />;
+  if (isEmpty) return <EmptyState title={emptyTitle} hint={emptyHint} action={emptyAction} />;
   return <>{children}</>;
 }

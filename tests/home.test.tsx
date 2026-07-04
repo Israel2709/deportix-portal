@@ -56,7 +56,7 @@ describe('HomeView', () => {
     );
     expect(screen.getByRole('heading', { name: 'NFL' }).closest('a')).toHaveAttribute(
       'href',
-      '/deportes/nfl',
+      '/nfl',
     );
     expect(screen.getAllByText('Disponible').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Sin datos cargados aún').length).toBeGreaterThan(0);

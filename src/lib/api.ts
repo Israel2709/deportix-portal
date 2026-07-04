@@ -73,6 +73,15 @@ async function readJsonResponse(res: Response): Promise<unknown> {
 }
 
 function throwApiError(res: Response, body: unknown): never {
+  if (body && typeof body === 'object' && 'errors' in body) {
+    const errors = (body as { errors: unknown }).errors;
+    if (errors && typeof errors === 'object' && !Array.isArray(errors)) {
+      const messages = Object.values(errors as Record<string, string>).filter(Boolean);
+      if (messages.length > 0) {
+        throw new ApiClientError(messages.join(' · '), 'NFL_ERROR', res.status);
+      }
+    }
+  }
   const errorBody = body as ApiErrorBody | null;
   throw new ApiClientError(
     errorBody?.error?.message ?? `La solicitud falló (${res.status})`,
@@ -127,11 +136,16 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
 }
 
 /** Typed DELETE that throws an ApiClientError on a non-2xx response. */
-export async function apiDelete(path: string): Promise<void> {
-  const res = await apiFetch(path, { method: 'DELETE' });
+export async function apiDelete(path: string, body?: unknown): Promise<void> {
+  const init: RequestInit = { method: 'DELETE' };
+  if (body !== undefined) {
+    init.headers = { 'Content-Type': 'application/json' };
+    init.body = JSON.stringify(body);
+  }
+  const res = await apiFetch(path, init);
   if (res.status === 204) return;
-  const body = await readJsonResponse(res);
-  if (!res.ok) throwApiError(res, body);
+  const parsed = await readJsonResponse(res);
+  if (!res.ok) throwApiError(res, parsed);
 }
 
 /** Typed POST that throws an ApiClientError on a non-2xx response. */
