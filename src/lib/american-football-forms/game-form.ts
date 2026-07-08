@@ -5,7 +5,6 @@ import type {
 } from '../american-football-bff-types';
 import {
   nullableString,
-  parseOptionalInt,
   parseOptionalNumber,
   requireCanonicalId,
 } from './shared';
@@ -41,29 +40,17 @@ export interface AmericanFootballGameFormValues {
   awayId: string;
   awayName: string;
   awayLogo: string;
-  homeQ1: string;
-  homeQ2: string;
-  homeQ3: string;
-  homeQ4: string;
-  homeOt: string;
-  homeTotal: string;
-  awayQ1: string;
-  awayQ2: string;
-  awayQ3: string;
-  awayQ4: string;
-  awayOt: string;
-  awayTotal: string;
 }
 
 export const EMPTY_AMERICAN_FOOTBALL_GAME_FORM: AmericanFootballGameFormValues = {
   queryLeague: '',
-  querySeason: '2022',
+  querySeason: '',
   queryTimezone: 'UTC',
   queryTeam: '',
   queryGameId: '',
   gameId: '',
   replaceOnPatch: false,
-  stage: 'Regular Season',
+  stage: '',
   week: '',
   dateTimezone: 'UTC',
   dateDate: '',
@@ -75,7 +62,7 @@ export const EMPTY_AMERICAN_FOOTBALL_GAME_FORM: AmericanFootballGameFormValues =
   statusLong: 'Not Started',
   leagueId: '',
   leagueName: '',
-  leagueSeason: '2022',
+  leagueSeason: '',
   leagueLogo: '',
   leagueCountryName: 'USA',
   leagueCountryCode: 'US',
@@ -86,23 +73,15 @@ export const EMPTY_AMERICAN_FOOTBALL_GAME_FORM: AmericanFootballGameFormValues =
   awayId: '',
   awayName: '',
   awayLogo: '',
-  homeQ1: '',
-  homeQ2: '',
-  homeQ3: '',
-  homeQ4: '',
-  homeOt: '',
-  homeTotal: '',
-  awayQ1: '',
-  awayQ2: '',
-  awayQ3: '',
-  awayQ4: '',
-  awayOt: '',
-  awayTotal: '',
 };
 
 export function gameToFormValues(item: AmericanFootballGameItem): AmericanFootballGameFormValues {
+  const season = item.league.season != null ? String(item.league.season) : '';
   return {
     ...EMPTY_AMERICAN_FOOTBALL_GAME_FORM,
+    queryLeague: item.league.id,
+    querySeason: season,
+    leagueSeason: season,
     gameId: item.game.id,
     queryGameId: item.game.id,
     stage: item.game.stage ?? '',
@@ -128,23 +107,7 @@ export function gameToFormValues(item: AmericanFootballGameItem): AmericanFootba
     awayId: item.teams.away.id,
     awayName: item.teams.away.name,
     awayLogo: item.teams.away.logo ?? '',
-    homeQ1: scoreField(item.scores?.home?.quarter_1),
-    homeQ2: scoreField(item.scores?.home?.quarter_2),
-    homeQ3: scoreField(item.scores?.home?.quarter_3),
-    homeQ4: scoreField(item.scores?.home?.quarter_4),
-    homeOt: scoreField(item.scores?.home?.overtime),
-    homeTotal: scoreField(item.scores?.home?.total),
-    awayQ1: scoreField(item.scores?.away?.quarter_1),
-    awayQ2: scoreField(item.scores?.away?.quarter_2),
-    awayQ3: scoreField(item.scores?.away?.quarter_3),
-    awayQ4: scoreField(item.scores?.away?.quarter_4),
-    awayOt: scoreField(item.scores?.away?.overtime),
-    awayTotal: scoreField(item.scores?.away?.total),
   };
-}
-
-function scoreField(value: number | null | undefined): string {
-  return value != null ? String(value) : '';
 }
 
 export function applyTeamToGameSide(
@@ -169,7 +132,11 @@ export function validateAmericanFootballGameForm(
     const hasId = values.queryGameId.trim();
     const hasLeagueSeason = values.queryLeague.trim() && values.querySeason.trim();
     if (!hasId && !hasLeagueSeason) {
-      return 'Indica league+season o un ID de partido para consultar.';
+      return 'Selecciona liga y temporada, o indica un ID de partido.';
+    }
+    if (!hasId) {
+      if (!values.queryLeague.trim()) return 'Selecciona una liga.';
+      if (!values.querySeason.trim()) return 'Selecciona una temporada.';
     }
     return null;
   }
@@ -179,8 +146,16 @@ export function validateAmericanFootballGameForm(
     }
     return null;
   }
+  if (mode === 'create') {
+    if (!values.queryLeague.trim()) return 'Selecciona una liga.';
+    if (!values.querySeason.trim()) return 'Selecciona una temporada.';
+    if (!values.stage.trim()) return 'Selecciona una etapa.';
+  }
   if (!values.homeName.trim() || !values.awayName.trim()) {
     return 'Selecciona equipos local y visitante.';
+  }
+  if (values.homeId && values.awayId && values.homeId === values.awayId) {
+    return 'Local y visitante deben ser equipos distintos.';
   }
   if (requireCanonicalId(values.homeId, 'Local') === 'invalid') {
     return 'El equipo local debe ser un UUID válido (selecciónalo de la lista).';
@@ -194,30 +169,7 @@ export function validateAmericanFootballGameForm(
   if (mode === 'edit' && requireCanonicalId(values.gameId, 'ID') === 'invalid') {
     return 'Selecciona un partido de la lista para editar.';
   }
-  for (const label of ['home', 'away'] as const) {
-    for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Ot', 'Total'] as const) {
-      const key = `${label}${q}` as keyof AmericanFootballGameFormValues;
-      const parsed = parseOptionalInt(String(values[key]));
-      if (parsed === 'invalid') return `Marcador ${label} ${q}: entero inválido.`;
-    }
-  }
   return null;
-}
-
-function buildScoreSide(values: AmericanFootballGameFormValues, side: 'home' | 'away') {
-  const prefix = side === 'home' ? 'home' : 'away';
-  const get = (q: string): number | null => {
-    const parsed = parseOptionalInt(String(values[`${prefix}${q}` as keyof AmericanFootballGameFormValues]));
-    return parsed === 'invalid' ? null : parsed;
-  };
-  return {
-    quarter_1: get('Q1'),
-    quarter_2: get('Q2'),
-    quarter_3: get('Q3'),
-    quarter_4: get('Q4'),
-    overtime: get('Ot'),
-    total: get('Total'),
-  };
 }
 
 export function buildAmericanFootballGameBody(values: AmericanFootballGameFormValues): AmericanFootballGameCreate {
@@ -264,10 +216,6 @@ export function buildAmericanFootballGameBody(values: AmericanFootballGameFormVa
         name: values.awayName.trim(),
         logo: nullableString(values.awayLogo),
       },
-    },
-    scores: {
-      home: buildScoreSide(values, 'home'),
-      away: buildScoreSide(values, 'away'),
     },
   };
 }

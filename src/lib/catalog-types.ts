@@ -12,3 +12,10 @@ export interface CatalogLeagueType {
   code: string;
   label: string;
 }
+
+/** Global game stage catalog — api-sports American Football `game.stage` (Firestore `game_stages`). */
+
+export interface CatalogGameStage {
+  value: string;
+  label: string;
+}

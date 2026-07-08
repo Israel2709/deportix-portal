@@ -13,7 +13,7 @@ export interface AmericanFootballTeamFormValues {
 
 export const EMPTY_AMERICAN_FOOTBALL_TEAM_FORM: AmericanFootballTeamFormValues = {
   queryLeague: '',
-  querySeason: '2022',
+  querySeason: '',
   teamId: '',
   deleteId: '',
   name: '',
@@ -36,9 +36,11 @@ export function validateAmericanFootballTeamForm(
   values: AmericanFootballTeamFormValues,
   mode: 'create' | 'edit' | 'delete' | 'query',
 ): string | null {
+  if (mode === 'query' || mode === 'create') {
+    if (!values.queryLeague.trim()) return 'Selecciona una liga.';
+    if (!values.querySeason.trim()) return 'Selecciona una temporada.';
+  }
   if (mode === 'query') {
-    if (!values.queryLeague.trim()) return 'La liga es obligatoria para consultar (UUID o id legacy).';
-    if (!values.querySeason.trim()) return 'La temporada es obligatoria para consultar.';
     return null;
   }
   if (mode === 'delete') {

@@ -1,6 +1,6 @@
 import { ApiClientError, apiDelete, apiGet, apiPatch, apiPost } from './api';
 import type { AmericanFootballEnvelope } from './american-football-bff-types';
-import type { CatalogCountry, CatalogLeagueType } from './catalog-types';
+import type { CatalogCountry, CatalogGameStage, CatalogLeagueType } from './catalog-types';
 import type { ApiCollection, ApiResource } from './types';
 
 function buildQuery(params: Record<string, string | undefined>): string {
@@ -76,5 +76,11 @@ export async function deleteCatalogCountry(key: string): Promise<void> {
 /** List league types from the global Deportix catalog (`GET /v1/league-types`). */
 export async function getCatalogLeagueTypes(): Promise<CatalogLeagueType[]> {
   const res = await apiGet<ApiCollection<CatalogLeagueType>>('/v1/league-types?pageSize=50');
+  return res.data ?? [];
+}
+
+/** List game stages from the global Deportix catalog (`GET /v1/game-stages`). */
+export async function getCatalogGameStages(): Promise<CatalogGameStage[]> {
+  const res = await apiGet<ApiCollection<CatalogGameStage>>('/v1/game-stages?pageSize=50');
   return res.data ?? [];
 }

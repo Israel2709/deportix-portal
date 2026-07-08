@@ -78,13 +78,11 @@ describe('NFL form builders', () => {
       homeName: 'Miami Dolphins',
       awayId: TEAM_AWAY_ID,
       awayName: 'Detroit Lions',
-      homeTotal: '38',
-      awayTotal: '26',
     });
     expect('id' in body.game).toBe(false);
     expect(body.league.id).toBe(LEAGUE_ID);
     expect(body.teams.home.id).toBe(TEAM_ID);
-    expect(body.scores?.home?.total).toBe(38);
+    expect(body.scores).toBeUndefined();
   });
 
   it('builds standing body with canonical refs', () => {
@@ -122,6 +120,18 @@ describe('NFL form validation', () => {
     expect(validateAmericanFootballSeasonForm({ ...EMPTY_AMERICAN_FOOTBALL_SEASON_FORM, year: 'abc' })).not.toBeNull();
   });
 
+  it('rejects team create without league and season', () => {
+    expect(
+      validateAmericanFootballTeamForm({ ...EMPTY_AMERICAN_FOOTBALL_TEAM_FORM, name: 'Dolphins' }, 'create'),
+    ).not.toBeNull();
+    expect(
+      validateAmericanFootballTeamForm(
+        { ...EMPTY_AMERICAN_FOOTBALL_TEAM_FORM, queryLeague: LEAGUE_ID, querySeason: '2022', name: 'Dolphins' },
+        'create',
+      ),
+    ).toBeNull();
+  });
+
   it('rejects team without name', () => {
     expect(
       validateAmericanFootballTeamForm({ ...EMPTY_AMERICAN_FOOTBALL_TEAM_FORM, name: '' }, 'create'),
@@ -134,8 +144,27 @@ describe('NFL form validation', () => {
         {
           ...EMPTY_AMERICAN_FOOTBALL_GAME_FORM,
           queryLeague: LEAGUE_ID,
+          querySeason: '2022',
           homeName: 'Home',
           awayName: 'Away',
+        },
+        'create',
+      ),
+    ).not.toBeNull();
+  });
+
+  it('rejects game create when home and away are the same team', () => {
+    expect(
+      validateAmericanFootballGameForm(
+        {
+          ...EMPTY_AMERICAN_FOOTBALL_GAME_FORM,
+          queryLeague: LEAGUE_ID,
+          querySeason: '2022',
+          stage: 'Regular Season',
+          homeId: TEAM_ID,
+          homeName: 'Home',
+          awayId: TEAM_ID,
+          awayName: 'Home',
         },
         'create',
       ),
@@ -148,6 +177,8 @@ describe('NFL form validation', () => {
         {
           ...EMPTY_AMERICAN_FOOTBALL_GAME_FORM,
           queryLeague: LEAGUE_ID,
+          querySeason: '2022',
+          stage: 'Regular Season',
           homeId: TEAM_ID,
           homeName: 'Home',
           awayId: TEAM_AWAY_ID,

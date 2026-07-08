@@ -12,7 +12,7 @@ export const EMPTY_AMERICAN_FOOTBALL_SEASON_FORM: AmericanFootballSeasonFormValu
 };
 
 export function validateAmericanFootballSeasonForm(values: AmericanFootballSeasonFormValues): string | null {
-  if (!values.queryLeague.trim()) return 'La liga es obligatoria.';
+  if (!values.queryLeague.trim()) return 'Selecciona una liga.';
   const year = parseRequiredInt(values.year, 'año');
   if (year === 'invalid') return 'El año debe ser un entero válido.';
   if (year < 1900 || year > 2100) return 'El año debe estar entre 1900 y 2100.';

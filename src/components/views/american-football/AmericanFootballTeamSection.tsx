@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   createAmericanFootballTeam,
   deleteAmericanFootballTeam,
+  getAmericanFootballLeagues,
+  getAmericanFootballSeasons,
   getAmericanFootballTeams,
   updateAmericanFootballTeam,
 } from '@/lib/american-football-api';
-import type { AmericanFootballTeamItem } from '@/lib/american-football-bff-types';
+import type { AmericanFootballLeagueItem, AmericanFootballTeamItem } from '@/lib/american-football-bff-types';
 import {
   EMPTY_AMERICAN_FOOTBALL_TEAM_FORM,
   buildAmericanFootballTeamBody,
@@ -16,8 +18,18 @@ import {
 } from '@/lib/american-football-forms/team-form';
 import { truncateCanonicalId } from '@/lib/american-football-forms/shared';
 import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
-import { AmericanFootballFieldGrid, AmericanFootballFormShell, AmericanFootballRowActions, AmericanFootballTextField } from './AmericanFootballFormShell';
+import {
+  AmericanFootballFieldGrid,
+  AmericanFootballFormShell,
+  AmericanFootballRowActions,
+  AmericanFootballSelectField,
+  AmericanFootballTextField,
+} from './AmericanFootballFormShell';
 import { submitLabelForMode, useAmericanFootballSectionState } from './useAmericanFootballSectionState';
+
+const NO_LEAGUES_HINT = 'sin ligas cargadas, crea una liga para poder agregar equipos';
+const NO_SEASONS_HINT = 'sin temporadas cargadas, agrega una temporada en el paso Temporadas';
+const SELECT_LEAGUE_FIRST_HINT = 'selecciona una liga primero';
 
 export function AmericanFootballTeamSection({
   step,
@@ -27,13 +39,112 @@ export function AmericanFootballTeamSection({
   onDataChanged?: () => void;
 }) {
   const state = useAmericanFootballSectionState(EMPTY_AMERICAN_FOOTBALL_TEAM_FORM, { onDataChanged });
+  const [leagues, setLeagues] = useState<AmericanFootballLeagueItem[]>([]);
+  const [seasons, setSeasons] = useState<number[]>([]);
+  const [loadingLeagues, setLoadingLeagues] = useState(false);
+  const [loadingSeasons, setLoadingSeasons] = useState(false);
   const [rows, setRows] = useState<AmericanFootballTeamItem[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+
+  const leagueOptions = useMemo(
+    () => leagues.map((item) => ({ value: item.league.id, label: item.league.name })),
+    [leagues],
+  );
+
+  const seasonOptions = useMemo(
+    () => seasons.map((year) => ({ value: String(year), label: String(year) })),
+    [seasons],
+  );
+
+  const selectedLeague = useMemo(
+    () => leagues.find((item) => item.league.id === state.values.queryLeague),
+    [leagues, state.values.queryLeague],
+  );
+
+  const selectedLeagueLabel = selectedLeague?.league.name ?? '—';
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadLeagues() {
+      setLoadingLeagues(true);
+      try {
+        const envelope = await getAmericanFootballLeagues();
+        if (cancelled) return;
+        const loaded = envelope.response;
+        setLeagues(loaded);
+        if (loaded.length > 0) {
+          state.setValues((current) => {
+            const stillValid = loaded.some((item) => item.league.id === current.queryLeague);
+            if (stillValid) return current;
+            const first = loaded[0];
+            return first ? { ...current, queryLeague: first.league.id } : current;
+          });
+        } else {
+          state.setValues((current) => ({ ...current, queryLeague: '', querySeason: '' }));
+        }
+      } catch {
+        if (!cancelled) {
+          setLeagues([]);
+          state.setValues((current) => ({ ...current, queryLeague: '', querySeason: '' }));
+        }
+      } finally {
+        if (!cancelled) setLoadingLeagues(false);
+      }
+    }
+    void loadLeagues();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.listKey, state.setValues]);
+
+  useEffect(() => {
+    if (!state.values.queryLeague.trim()) {
+      setSeasons([]);
+      state.setValues((current) => (current.querySeason ? { ...current, querySeason: '' } : current));
+      return;
+    }
+
+    let cancelled = false;
+    async function loadSeasons() {
+      setLoadingSeasons(true);
+      try {
+        const envelope = await getAmericanFootballSeasons(state.values.queryLeague);
+        if (cancelled) return;
+        const loaded = envelope.response;
+        setSeasons(loaded);
+        state.setValues((current) => {
+          if (loaded.length === 0) {
+            return current.querySeason ? { ...current, querySeason: '' } : current;
+          }
+          const stillValid = loaded.some((year) => String(year) === current.querySeason);
+          if (stillValid) return current;
+          const first = loaded[0];
+          return first !== undefined ? { ...current, querySeason: String(first) } : current;
+        });
+      } catch {
+        if (!cancelled) {
+          setSeasons([]);
+          state.setValues((current) => (current.querySeason ? { ...current, querySeason: '' } : current));
+        }
+      } finally {
+        if (!cancelled) setLoadingSeasons(false);
+      }
+    }
+    void loadSeasons();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.listKey, state.values.queryLeague, state.setValues]);
 
   useEffect(() => {
     if (state.mode !== 'query' && state.mode !== 'create' && state.mode !== 'edit') {
       return;
     }
+    if (!state.values.queryLeague.trim() || !state.values.querySeason.trim()) {
+      setRows([]);
+      return;
+    }
+
     let cancelled = false;
     async function load() {
       setLoadingList(true);
@@ -100,11 +211,23 @@ export function AmericanFootballTeamSection({
     }
   }
 
+  const noLeagues = !loadingLeagues && leagues.length === 0;
+  const hasLeague = Boolean(state.values.queryLeague.trim());
+  const noSeasons = hasLeague && !loadingSeasons && seasons.length === 0;
+
+  const seasonHint = !hasLeague
+    ? SELECT_LEAGUE_FIRST_HINT
+    : noSeasons
+      ? NO_SEASONS_HINT
+      : undefined;
+
+  const seasonDisabled = loadingSeasons || !hasLeague || noSeasons;
+
   return (
     <AmericanFootballFormShell
       step={step}
       title="Equipos"
-      description="El ID lo genera la API al crear. Usa el UUID de la liga en query (copia desde la lista de ligas)."
+      description="Elige liga y temporada, luego registra equipos. El ID lo genera la API al crear."
       mode={state.mode}
       onModeChange={(mode) => {
         state.setMode(mode);
@@ -116,10 +239,18 @@ export function AmericanFootballTeamSection({
       confirmDelete={state.confirmDelete}
       onConfirmDelete={() => void handleSubmit()}
       onCancelDelete={() => state.setConfirmDelete(null)}
-      listTitle={loadingList ? 'Cargando…' : `${rows.length} equipo(s)`}
+      listTitle={
+        loadingList
+          ? 'Cargando…'
+          : `${rows.length} equipo(s) — ${selectedLeagueLabel}${state.values.querySeason ? ` · ${state.values.querySeason}` : ''}`
+      }
       listContent={
-        rows.length === 0 ? (
-          <p className="text-sm text-slate-500">Sin equipos para league/season indicados.</p>
+        !hasLeague ? (
+          <p className="text-sm text-slate-500">Selecciona una liga para ver equipos.</p>
+        ) : !state.values.querySeason.trim() ? (
+          <p className="text-sm text-slate-500">Selecciona una temporada para ver equipos.</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-slate-500">Sin equipos para esta liga y temporada.</p>
         ) : (
           <ul className="space-y-2">
             {rows.map((row) => (
@@ -136,7 +267,7 @@ export function AmericanFootballTeamSection({
                 <AmericanFootballRowActions
                   onEdit={() => {
                     state.setMode('edit');
-                    state.setValues(teamToFormValues(row));
+                    state.setValues({ ...teamToFormValues(row), queryLeague: state.values.queryLeague, querySeason: state.values.querySeason });
                   }}
                   onDelete={() => {
                     state.setMode('delete');
@@ -150,13 +281,26 @@ export function AmericanFootballTeamSection({
       }
     >
       <AmericanFootballFieldGrid>
-        <AmericanFootballTextField
-          label="Liga (query, UUID)"
+        <AmericanFootballSelectField
+          label="Liga"
           value={state.values.queryLeague}
           onChange={(v) => state.updateField('queryLeague', v)}
-          hint="UUID de la liga — cópialo del paso Ligas"
+          options={leagueOptions}
+          placeholder={loadingLeagues ? 'Cargando ligas…' : 'Selecciona una liga'}
+          disabled={loadingLeagues || noLeagues}
+          hint={noLeagues ? NO_LEAGUES_HINT : undefined}
         />
-        <AmericanFootballTextField label="Temporada (query)" value={state.values.querySeason} onChange={(v) => state.updateField('querySeason', v)} />
+        <AmericanFootballSelectField
+          label="Temporada"
+          value={state.values.querySeason}
+          onChange={(v) => state.updateField('querySeason', v)}
+          options={seasonOptions}
+          placeholder={
+            loadingSeasons ? 'Cargando temporadas…' : hasLeague ? 'Selecciona una temporada' : '—'
+          }
+          disabled={seasonDisabled}
+          hint={seasonHint}
+        />
       </AmericanFootballFieldGrid>
       {state.mode === 'edit' && (
         <p className="text-xs font-mono text-slate-400">Editando: {state.values.teamId}</p>
