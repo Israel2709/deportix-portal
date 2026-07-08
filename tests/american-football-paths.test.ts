@@ -16,7 +16,9 @@ describe('american-football-paths', () => {
   });
 
   it('builds league browse paths', () => {
-    expect(americanFootballLeaguePath({ id: 'lg_nfl', externalId: '1' })).toBe('/american-football/leagues/1');
-    expect(americanFootballLeaguePath({ id: 'lg_nfl', externalId: null })).toBe('/american-football/leagues/lg_nfl');
+    expect(americanFootballLeaguePath({ id: 'lg_nfl', externalId: '1' })).toBe('/american-football/leagues/lg_nfl');
+    expect(americanFootballLeaguePath({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', externalId: null })).toBe(
+      '/american-football/leagues/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    );
   });
 });

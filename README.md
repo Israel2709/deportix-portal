@@ -62,7 +62,7 @@ NEXT_PUBLIC_API_PORT=3000
 
 ## Documentación interna
 
-- **[American football — endpoints, contratos y shapes BFF](docs/american-football-segment.md)** — guía para cargar datos vía `/american-football/*` (POST/PATCH/DELETE) con shapes api-sports.
+- **[American football — endpoints, contratos y shapes BFF](docs/american-football-segment.md)** — guía para cargar datos vía `/american-football/*` (POST/PATCH/DELETE). IDs canónicos UUID asignados por el servidor; referencias entre recursos usan esos UUIDs.
 
 ## Deploy to Vercel
 

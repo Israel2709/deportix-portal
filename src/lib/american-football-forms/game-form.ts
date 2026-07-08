@@ -1,5 +1,14 @@
-import type { AmericanFootballGameItem, AmericanFootballGameScoreSide, AmericanFootballTeamItem } from '../american-football-bff-types';
-import { nullableString, parseOptionalInt, parseOptionalNumber, parseRequiredInt } from './shared';
+import type {
+  AmericanFootballGameCreate,
+  AmericanFootballGameItem,
+  AmericanFootballTeamItem,
+} from '../american-football-bff-types';
+import {
+  nullableString,
+  parseOptionalInt,
+  parseOptionalNumber,
+  requireCanonicalId,
+} from './shared';
 
 export interface AmericanFootballGameFormValues {
   queryLeague: string;
@@ -47,55 +56,55 @@ export interface AmericanFootballGameFormValues {
 }
 
 export const EMPTY_AMERICAN_FOOTBALL_GAME_FORM: AmericanFootballGameFormValues = {
-  queryLeague: '1',
+  queryLeague: '',
   querySeason: '2022',
   queryTimezone: 'UTC',
   queryTeam: '',
   queryGameId: '',
-  gameId: '4550',
+  gameId: '',
   replaceOnPatch: false,
   stage: 'Regular Season',
-  week: '5',
+  week: '',
   dateTimezone: 'UTC',
-  dateDate: '2022-09-30',
-  dateTime: '00:00',
-  dateTimestamp: '1664496000',
-  venueName: 'Hard Rock Stadium',
-  venueCity: 'Miami Gardens',
-  statusShort: 'FT',
-  statusLong: 'Finished',
-  leagueId: '1',
-  leagueName: 'NFL',
+  dateDate: '',
+  dateTime: '',
+  dateTimestamp: '',
+  venueName: '',
+  venueCity: '',
+  statusShort: 'NS',
+  statusLong: 'Not Started',
+  leagueId: '',
+  leagueName: '',
   leagueSeason: '2022',
-  leagueLogo: 'https://media.api-sports.io/american-football/leagues/1.png',
+  leagueLogo: '',
   leagueCountryName: 'USA',
   leagueCountryCode: 'US',
-  leagueCountryFlag: 'https://media.api-sports.io/flags/us.svg',
-  homeId: '25',
-  homeName: 'Miami Dolphins',
-  homeLogo: 'https://media.api-sports.io/american-football/teams/25.png',
-  awayId: '7',
-  awayName: 'Detroit Lions',
-  awayLogo: 'https://media.api-sports.io/american-football/teams/7.png',
-  homeQ1: '14',
-  homeQ2: '3',
-  homeQ3: '14',
-  homeQ4: '7',
+  leagueCountryFlag: '',
+  homeId: '',
+  homeName: '',
+  homeLogo: '',
+  awayId: '',
+  awayName: '',
+  awayLogo: '',
+  homeQ1: '',
+  homeQ2: '',
+  homeQ3: '',
+  homeQ4: '',
   homeOt: '',
-  homeTotal: '38',
-  awayQ1: '7',
-  awayQ2: '10',
-  awayQ3: '3',
-  awayQ4: '6',
+  homeTotal: '',
+  awayQ1: '',
+  awayQ2: '',
+  awayQ3: '',
+  awayQ4: '',
   awayOt: '',
-  awayTotal: '26',
+  awayTotal: '',
 };
 
 export function gameToFormValues(item: AmericanFootballGameItem): AmericanFootballGameFormValues {
   return {
     ...EMPTY_AMERICAN_FOOTBALL_GAME_FORM,
-    gameId: String(item.game.id),
-    queryGameId: String(item.game.id),
+    gameId: item.game.id,
+    queryGameId: item.game.id,
     stage: item.game.stage ?? '',
     week: item.game.week ?? '',
     dateTimezone: item.game.date?.timezone ?? 'UTC',
@@ -106,17 +115,17 @@ export function gameToFormValues(item: AmericanFootballGameItem): AmericanFootba
     venueCity: item.game.venue?.city ?? '',
     statusShort: item.game.status?.short ?? '',
     statusLong: item.game.status?.long ?? '',
-    leagueId: String(item.league.id),
+    leagueId: item.league.id,
     leagueName: item.league.name,
     leagueSeason: item.league.season != null ? String(item.league.season) : '',
     leagueLogo: item.league.logo ?? '',
     leagueCountryName: item.league.country?.name ?? 'USA',
     leagueCountryCode: item.league.country?.code ?? '',
     leagueCountryFlag: item.league.country?.flag ?? '',
-    homeId: String(item.teams.home.id),
+    homeId: item.teams.home.id,
     homeName: item.teams.home.name,
     homeLogo: item.teams.home.logo ?? '',
-    awayId: String(item.teams.away.id),
+    awayId: item.teams.away.id,
     awayName: item.teams.away.name,
     awayLogo: item.teams.away.logo ?? '',
     homeQ1: scoreField(item.scores?.home?.quarter_1),
@@ -146,7 +155,7 @@ export function applyTeamToGameSide(
   const prefix = side === 'home' ? 'home' : 'away';
   return {
     ...values,
-    [`${prefix}Id`]: String(team.id),
+    [`${prefix}Id`]: team.id,
     [`${prefix}Name`]: team.name,
     [`${prefix}Logo`]: team.logo ?? '',
   };
@@ -165,15 +174,26 @@ export function validateAmericanFootballGameForm(
     return null;
   }
   if (mode === 'delete') {
-    if (!values.gameId.trim()) return 'El ID del partido es obligatorio para eliminar.';
+    if (requireCanonicalId(values.gameId, 'ID') === 'invalid') {
+      return 'Selecciona un partido de la lista para eliminar.';
+    }
     return null;
   }
-  const gameId = parseRequiredInt(values.gameId, 'ID');
-  if (gameId === 'invalid') return 'El ID del partido debe ser un entero válido.';
   if (!values.homeName.trim() || !values.awayName.trim()) {
-    return 'Los equipos local y visitante son obligatorios.';
+    return 'Selecciona equipos local y visitante.';
   }
-  if (mode === 'edit' && !values.gameId.trim()) return 'El ID del partido es obligatorio para editar.';
+  if (requireCanonicalId(values.homeId, 'Local') === 'invalid') {
+    return 'El equipo local debe ser un UUID válido (selecciónalo de la lista).';
+  }
+  if (requireCanonicalId(values.awayId, 'Visitante') === 'invalid') {
+    return 'El equipo visitante debe ser un UUID válido (selecciónalo de la lista).';
+  }
+  if (requireCanonicalId(values.leagueId || values.queryLeague, 'Liga') === 'invalid') {
+    return 'Indica el UUID de la liga (query o embebida).';
+  }
+  if (mode === 'edit' && requireCanonicalId(values.gameId, 'ID') === 'invalid') {
+    return 'Selecciona un partido de la lista para editar.';
+  }
   for (const label of ['home', 'away'] as const) {
     for (const q of ['Q1', 'Q2', 'Q3', 'Q4', 'Ot', 'Total'] as const) {
       const key = `${label}${q}` as keyof AmericanFootballGameFormValues;
@@ -184,7 +204,7 @@ export function validateAmericanFootballGameForm(
   return null;
 }
 
-function buildScoreSide(values: AmericanFootballGameFormValues, side: 'home' | 'away'): AmericanFootballGameScoreSide {
+function buildScoreSide(values: AmericanFootballGameFormValues, side: 'home' | 'away') {
   const prefix = side === 'home' ? 'home' : 'away';
   const get = (q: string): number | null => {
     const parsed = parseOptionalInt(String(values[`${prefix}${q}` as keyof AmericanFootballGameFormValues]));
@@ -200,16 +220,10 @@ function buildScoreSide(values: AmericanFootballGameFormValues, side: 'home' | '
   };
 }
 
-function parseId(value: string): number | string {
-  const trimmed = value.trim();
-  return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed;
-}
-
-export function buildAmericanFootballGameBody(values: AmericanFootballGameFormValues): AmericanFootballGameItem {
+export function buildAmericanFootballGameBody(values: AmericanFootballGameFormValues): AmericanFootballGameCreate {
   const timestamp = parseOptionalNumber(values.dateTimestamp);
   return {
     game: {
-      id: parseId(values.gameId),
       stage: nullableString(values.stage),
       week: nullableString(values.week),
       date: {
@@ -229,7 +243,7 @@ export function buildAmericanFootballGameBody(values: AmericanFootballGameFormVa
       },
     },
     league: {
-      id: parseId(values.leagueId),
+      id: (values.leagueId || values.queryLeague).trim(),
       name: values.leagueName.trim(),
       season: values.leagueSeason.trim() ? values.leagueSeason.trim() : undefined,
       logo: nullableString(values.leagueLogo),
@@ -241,12 +255,12 @@ export function buildAmericanFootballGameBody(values: AmericanFootballGameFormVa
     },
     teams: {
       home: {
-        id: parseId(values.homeId),
+        id: values.homeId.trim(),
         name: values.homeName.trim(),
         logo: nullableString(values.homeLogo),
       },
       away: {
-        id: parseId(values.awayId),
+        id: values.awayId.trim(),
         name: values.awayName.trim(),
         logo: nullableString(values.awayLogo),
       },

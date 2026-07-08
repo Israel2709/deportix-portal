@@ -7,7 +7,7 @@ export interface AmericanFootballSeasonFormValues {
 }
 
 export const EMPTY_AMERICAN_FOOTBALL_SEASON_FORM: AmericanFootballSeasonFormValues = {
-  queryLeague: '1',
+  queryLeague: '',
   year: String(new Date().getFullYear()),
 };
 

@@ -8,3 +8,30 @@ body {
   background-color: #0b1120;
   color: #e2e8f0;
 }
+
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+/* Hide the native select indicator; FormSelect renders its own chevron. */
+.form-select-control {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: none;
+}
+
+.form-select-control::-ms-expand {
+  display: none;
+}
+
+.form-select-control::-webkit-list-button {
+  display: none;
+}

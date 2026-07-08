@@ -16,6 +16,7 @@ import {
   standingToFormValues,
   validateAmericanFootballStandingForm,
 } from '@/lib/american-football-forms/standing-form';
+import { truncateCanonicalId } from '@/lib/american-football-forms/shared';
 import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
 import { AmericanFootballFieldGrid, AmericanFootballFormShell, AmericanFootballRowActions, AmericanFootballTextField } from './AmericanFootballFormShell';
 import { submitLabelForMode, useAmericanFootballSectionState } from './useAmericanFootballSectionState';
@@ -89,7 +90,7 @@ export function AmericanFootballStandingSection({
     }
 
     if (state.mode === 'delete' && !state.confirmDelete) {
-      state.setConfirmDelete(`¿Eliminar la fila de clasificación ${state.values.deleteId}?`);
+      state.setConfirmDelete(`¿Eliminar la fila ${truncateCanonicalId(state.values.deleteId)}?`);
       return;
     }
 
@@ -98,7 +99,11 @@ export function AmericanFootballStandingSection({
       const body = buildAmericanFootballStandingBody(state.values);
       if (state.mode === 'create') {
         const res = await createAmericanFootballStanding(body);
+        const created = res.response[0];
         state.handleSuccess('Fila de clasificación creada', res.results);
+        if (created?.id) {
+          state.toast.info('ID asignado', created.id);
+        }
       } else if (state.mode === 'edit') {
         const res = await updateAmericanFootballStanding(state.values.standingId, body);
         state.handleSuccess('Clasificación actualizada', res.results);
@@ -137,26 +142,26 @@ export function AmericanFootballStandingSection({
           <p className="text-sm text-slate-500">Sin clasificación.</p>
         ) : (
           <ul className="space-y-2">
-            {rows.map((row, index) => (
+            {rows.map((row) => (
               <li
-                key={`${row.team.id}-${index}`}
+                key={row.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-800 px-3 py-2 text-sm"
               >
                 <span className="text-slate-200">
                   #{row.position ?? '—'} {row.team.name} · {row.won}-{row.lost}
-                  {row.ties ? `-${row.ties}` : ''}
+                  {row.ties ? `-${row.ties}` : ''}{' '}
+                  <span className="font-mono text-xs text-slate-500" title={row.id}>
+                    {truncateCanonicalId(row.id)}
+                  </span>
                 </span>
                 <AmericanFootballRowActions
                   onEdit={() => {
                     state.setMode('edit');
-                    state.setValues({
-                      ...standingToFormValues(row),
-                      standingId: String(row.team.id),
-                    });
+                    state.setValues(standingToFormValues(row));
                   }}
                   onDelete={() => {
                     state.setMode('delete');
-                    state.setValues({ ...state.values, deleteId: String(row.team.id) });
+                    state.setValues({ ...state.values, deleteId: row.id });
                   }}
                 />
               </li>
@@ -173,15 +178,28 @@ export function AmericanFootballStandingSection({
         )}
       </AmericanFootballFieldGrid>
 
-      {state.mode === 'edit' && (
-        <AmericanFootballTextField label="ID fila (PATCH)" value={state.values.standingId} onChange={(v) => state.updateField('standingId', v)} />
+      {state.mode === 'edit' && state.values.standingId && (
+        <p className="text-xs font-mono text-slate-400">Editando: {state.values.standingId}</p>
       )}
-      {state.mode === 'delete' && (
-        <AmericanFootballTextField label="ID a eliminar" value={state.values.deleteId} onChange={(v) => state.updateField('deleteId', v)} />
+      {state.mode === 'delete' && state.values.deleteId && (
+        <p className="text-xs font-mono text-slate-400">Eliminar: {state.values.deleteId}</p>
       )}
 
       {(state.mode === 'create' || state.mode === 'edit') && (
         <div className="space-y-4">
+          {(state.mode === 'create') && (
+            <AmericanFootballFieldGrid>
+              <AmericanFootballTextField
+                label="Liga (UUID, query)"
+                value={state.values.queryLeague}
+                onChange={(v) => {
+                  state.updateField('queryLeague', v);
+                  state.updateField('leagueId', v);
+                }}
+              />
+              <AmericanFootballTextField label="Temporada" value={state.values.leagueSeason} onChange={(v) => state.updateField('leagueSeason', v)} />
+            </AmericanFootballFieldGrid>
+          )}
           <AmericanFootballFieldGrid>
             <AmericanFootballTextField label="Conferencia" value={state.values.conference} onChange={(v) => state.updateField('conference', v)} />
             <AmericanFootballTextField label="División" value={state.values.division} onChange={(v) => state.updateField('division', v)} />
@@ -191,49 +209,26 @@ export function AmericanFootballStandingSection({
             <label className="block text-sm text-slate-200">
               Equipo
               <select
-                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 pl-3 py-2 text-sm"
                 value={state.values.teamId}
                 onChange={(e) => {
-                  const team = teams.find((t) => String(t.id) === e.target.value);
+                  const team = teams.find((t) => t.id === e.target.value);
                   if (team) state.setValues(applyTeamToStanding(state.values, team));
                 }}
               >
                 <option value="">Seleccionar…</option>
                 {teams.map((t) => (
-                  <option key={String(t.id)} value={String(t.id)}>
+                  <option key={t.id} value={t.id}>
                     {t.name}
                   </option>
                 ))}
               </select>
             </label>
           )}
+          {state.values.teamId && (
+            <p className="text-xs font-mono text-slate-500">Equipo: {truncateCanonicalId(state.values.teamId)}</p>
+          )}
           <AmericanFootballFieldGrid>
-            <AmericanFootballTextField label="Equipo ID" value={state.values.teamId} onChange={(v) => state.updateField('teamId', v)} />
-            <AmericanFootballTextField label="Equipo nombre" value={state.values.teamName} onChange={(v) => state.updateField('teamName', v)} />
-            <ImageUrlInput
-              label="Logo equipo"
-              value={state.values.teamLogo}
-              onChange={(v) => state.updateField('teamLogo', v)}
-              purpose="team_logo"
-              entityId={state.values.teamId}
-              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
-            />
-            <ImageUrlInput
-              label="Logo liga"
-              value={state.values.leagueLogo}
-              onChange={(v) => state.updateField('leagueLogo', v)}
-              purpose="league_logo"
-              entityId={state.values.leagueId}
-              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
-            />
-            <ImageUrlInput
-              label="Bandera país"
-              value={state.values.leagueCountryFlag}
-              onChange={(v) => state.updateField('leagueCountryFlag', v)}
-              purpose="flag"
-              entityId={state.values.leagueCountryName}
-              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
-            />
             <AmericanFootballTextField label="Victorias" value={state.values.won} onChange={(v) => state.updateField('won', v)} />
             <AmericanFootballTextField label="Derrotas" value={state.values.lost} onChange={(v) => state.updateField('lost', v)} />
             <AmericanFootballTextField label="Empates" value={state.values.ties} onChange={(v) => state.updateField('ties', v)} />

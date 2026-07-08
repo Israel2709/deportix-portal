@@ -37,7 +37,7 @@ describe('AmericanFootballLeaguesBrowse', () => {
     render(<AmericanFootballLeaguesBrowse />);
 
     const link = await screen.findByRole('link', { name: /NFL/i });
-    expect(link).toHaveAttribute('href', '/american-football/leagues/1');
+    expect(link).toHaveAttribute('href', '/american-football/leagues/lg_nfl');
   });
 
   it('shows empty state with loader link when there are no leagues', async () => {

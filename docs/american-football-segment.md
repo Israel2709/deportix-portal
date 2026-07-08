@@ -11,12 +11,26 @@ Guía para integrar el segmento **american football** del **Deportix Portal** co
 | Superficie | Prefijo | Uso en portal |
 |------------|---------|---------------|
 | **Deportix REST** | `/v1/*` | Lectura genérica, cobertura (`/v1/data-status`), vista American football (`/v1/leagues?sport=american-football`) |
-| **BFF American football (api-sports)** | `/american-football/*` | **Carga manual de datos** — POST/PATCH/DELETE con shapes idénticos a api-sports American Football v1 |
+| **BFF American football (api-sports)** | `/american-football/*` | **Carga manual de datos** — POST/PATCH/DELETE con envelope api-sports y **IDs canónicos UUID** |
 
-Para **escribir** datos de american football (equipos, partidos, clasificación, ligas, etc.) el portal debe usar **`/american-football/*`**, no `/v1/leagues/.../matches`. Los bodies de escritura son los mismos objetos que devuelve `response[]` en GET.
+Para **escribir** datos de american football (equipos, partidos, clasificación, ligas, etc.) el portal debe usar **`/american-football/*`**, no `/v1/leagues/.../matches`.
 
 Referencia en la API: [`docs/american-football-api-reference.md`](../../deportix-api/docs/american-football-api-reference.md)  
-Fixtures de contrato: [`deportix-api/tests/fixtures/api-sports-nfl/`](../../deportix-api/tests/fixtures/api-sports-nfl/)
+Fixtures de contrato (import legacy): [`deportix-api/tests/fixtures/api-sports-nfl/`](../../deportix-api/tests/fixtures/api-sports-nfl/)
+
+---
+
+## IDs canónicos (UUID)
+
+| Regla | Detalle |
+|-------|---------|
+| **Respuestas** | Todo `id` visible (`league.id`, `team.id`, `game.id`, fila de standing) es un **UUID** asignado por Firestore |
+| **POST create** | **No incluir** `id` del recurso que se crea — el servidor lo asigna y lo devuelve en `response[0]` |
+| **Referencias** | En POST de games/standings, `league.id` y `team.id` deben ser UUIDs **ya existentes** |
+| **GET / PATCH / DELETE** | Query/path aceptan UUID canónico; lookup por `external_id` legacy solo como fallback deprecado |
+| **Schemas estrictos** | Campos extra (p. ej. `game.id` en POST) → `400` |
+
+Tras crear una liga o equipo, copia el UUID del toast o de `response[0]` para usarlo en cargas posteriores (temporadas, equipos, partidos, clasificación).
 
 ---
 
@@ -27,7 +41,7 @@ Todas las respuestas JSON usan el envelope **completo** de api-sports (distinto 
 ```json
 {
   "get": "games",
-  "parameters": { "league": "1", "season": "2022" },
+  "parameters": { "league": "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "season": "2022" },
   "errors": [],
   "results": 1,
   "paging": { "current": 1, "total": 1 },
@@ -57,7 +71,7 @@ Cuerpo de error (ejemplo):
 ```json
 {
   "get": "teams",
-  "parameters": { "league": "1" },
+  "parameters": { "league": "a1b2c3d4-e5f6-7890-abcd-ef1234567890" },
   "errors": { "parameters": "The \"season\" parameter is required." },
   "results": 0,
   "paging": { "current": 1, "total": 1 },
@@ -67,33 +81,29 @@ Cuerpo de error (ejemplo):
 
 ### Cliente HTTP del portal
 
-Usar las funciones de [`src/lib/api.ts`](../src/lib/api.ts):
+Usar las funciones de [`src/lib/american-football-api.ts`](../src/lib/american-football-api.ts) (tipos en [`american-football-bff-types.ts`](../src/lib/american-football-bff-types.ts)):
 
 ```typescript
-import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api';
+import { createAmericanFootballTeam, listAmericanFootballLeagues } from '@/lib/american-football-api';
 
 // GET
-const envelope = await apiGet<AmericanFootballEnvelope<AmericanFootballGameItem>>('/american-football/games?league=1&season=2022');
-const games = envelope.response;
+const envelope = await listAmericanFootballLeagues();
+const leagues = envelope.response;
 
-// POST
-await apiPost('/american-football/games', gameItem);
-
-// PATCH
-await apiPatch('/american-football/games/4550?replace=true', gameItem);
-
-// DELETE → 204 sin body
-await apiDelete('/american-football/teams?id=tm_mia');
+// POST — body sin id; la respuesta trae el UUID asignado
+const created = await createAmericanFootballTeam(leagueUuid, { name: 'Miami Dolphins', logo: '…' });
+const teamId = created.response[0].id;
 ```
 
 ---
 
 ## Reglas de validación (escritura)
 
-1. **Body = un elemento de `response[]`** — el mismo objeto que devolvería un GET.
+1. **Create vs response** — POST usa tipos `*Create` (sin ids de recurso); GET/PATCH devuelven `*Item` con UUIDs.
 2. **Schemas estrictos** — campos extra en el JSON son rechazados con `400`.
-3. **IDs api-sports** — usar `id` numérico de api-sports en `game.id`, `team.id`, `league.id` (se persisten como `external_id` en Firestore).
-4. **Sin auth en MVP** — acceso restringido operacionalmente; CORS abierto en lecturas.
+3. **Referencias UUID** — `league.id`, `team.id`, etc. deben existir antes de crear games o standings.
+4. **Sin auto-creación de equipos** — POST `/american-football/games` **no** crea stubs; cargar equipos antes.
+5. **Sin auth en MVP** — acceso restringido operacionalmente; CORS abierto en lecturas.
 
 ---
 
@@ -101,14 +111,16 @@ await apiDelete('/american-football/teams?id=tm_mia');
 
 ```text
 1. POST /american-football/countries          (opcional — shape Football v3)
-2. POST /american-football/leagues            (incluye seasons[] anidadas)
-   — o POST /american-football/seasons { year } si la liga ya existe
-3. POST /american-football/teams?league=1     (equipos por liga)
-4. POST /american-football/games              (partidos — referencian team.id y league.id)
-5. POST /american-football/standings          (filas de clasificación por equipo)
+2. POST /american-football/leagues            (sin league.id — copiar UUID de response)
+   — o POST /american-football/seasons { year } con ?league=<uuid>
+3. POST /american-football/teams?league=<uuid>
+4. POST /american-football/games              (teams.*.id y league.id = UUIDs existentes)
+5. POST /american-football/standings          (team.id y league.id = UUIDs existentes)
 ```
 
 Catálogos auxiliares: `GET/POST /american-football/timezone`, `GET /american-football/seasons`.
+
+Reset de capa NFL (API): `pnpm data:reset-american-football -- --confirm`
 
 ---
 
@@ -119,13 +131,13 @@ Catálogos auxiliares: `GET/POST /american-football/timezone`, `GET /american-fo
 | Método | Ruta | Query (GET) | Body (POST/PATCH) |
 |--------|------|-------------|-------------------|
 | GET, POST, PATCH, DELETE | `/american-football/timezone` | — | `{ timezone }` / `{ timezone, newTimezone }` |
-| GET, POST, DELETE | `/american-football/seasons` | — | `{ year: number }` |
+| GET, POST, DELETE | `/american-football/seasons` | `league` (UUID) | `{ year: number }` |
 | GET, POST, PATCH, DELETE | `/american-football/countries` | `name` | `CountryItem` |
-| GET, POST, PATCH, DELETE | `/american-football/leagues` | `id`, `name`, `country_id`, `country`, `type`, `season`, `search` | `LeagueItem` |
-| GET, POST | `/american-football/games` | ver abajo | `GameItem` |
-| GET, PATCH, DELETE | `/american-football/games/{gameId}` | — | `GameItem` (PATCH) |
-| GET, POST, PATCH, DELETE | `/american-football/teams` | `league`, `season` **requeridos** | `TeamItem` |
-| GET, POST, PATCH, DELETE | `/american-football/standings` | `league`, `season` **requeridos**; `conference` opcional | `StandingItem` |
+| GET, POST, PATCH, DELETE | `/american-football/leagues` | `id` (UUID), `name`, … | `LeagueCreate` (sin `league.id`) |
+| GET, POST | `/american-football/games` | ver abajo | `GameCreate` (sin `game.id`) |
+| GET, PATCH, DELETE | `/american-football/games/{gameId}` | — | `GameCreate` (PATCH) |
+| GET, POST, PATCH, DELETE | `/american-football/teams` | `league`, `season` **requeridos** | `TeamCreate` / `TeamCreate` |
+| GET, POST, PATCH, DELETE | `/american-football/standings` | `league`, `season` **requeridos** | `StandingCreate` (sin `id`) |
 
 ---
 
@@ -165,7 +177,7 @@ GET /american-football/timezone
 
 `response`: `number[]` — ej. `[2024, 2023, 2022]`
 
-**POST** — registrar año (asocia a la primera liga NFL existente).
+**POST** — registrar año (asocia a liga NFL; opcional `?league=<uuid>`).
 
 ```json
 { "year": 2024 }
@@ -213,53 +225,47 @@ interface CountryItem {
 
 ### `/american-football/leagues`
 
-**GET** — filtros opcionales: `id`, `name`, `country_id`, `country`, `type`, `season` (año), `search`.
+**GET** — filtros opcionales: `id` (UUID), `name`, `country_id`, `country`, `type`, `season` (año), `search`.
 
-**POST** — crea liga NFL + temporadas anidadas.
+**POST** — crea liga NFL + temporadas anidadas (**sin** `league.id`).
 
-**PATCH** — `?id={externalId}` requerido.
+**PATCH** — `?id={uuid}` requerido.
 
-**DELETE** — `?id={externalId}` requerido.
+**DELETE** — `?id={uuid}` requerido.
 
 #### `LeagueItem` (`response[]`)
 
 ```typescript
 interface LeagueItem {
   league: {
-    id: number | string;
+    id: string;           // UUID — solo en respuestas
     name: string;
-    type?: string | null;   // ej. "league"
+    type?: string | null;
     logo?: string | null;
+    altLogo?: string | null;
   };
-  country: {
-    name: string;
-    code?: string | null;
-    flag?: string | null;
-  };
+  country: { name: string; code?: string | null; flag?: string | null };
   seasons: Array<{
     year: number;
-    start?: string | null;   // "YYYY-MM-DD"
+    start?: string | null;
     end?: string | null;
     current: boolean;
-    coverage?: {
-      games?: {
-        events?: boolean;
-        statisitcs?: { teams?: boolean; players?: boolean }; // typo api-sports
-      };
-      statistics?: { season?: { players?: boolean } };
-      players?: boolean;
-      injuries?: boolean;
-      standings?: boolean;
-    };
+    coverage?: { /* … */ };
   }>;
+}
+
+interface LeagueCreate {
+  league: { name: string; type?: string | null; logo?: string | null; altLogo?: string | null };
+  country: LeagueItem['country'];
+  seasons: LeagueItem['seasons'];
 }
 ```
 
-Ejemplo mínimo para POST:
+Ejemplo POST:
 
 ```json
 {
-  "league": { "id": 1, "name": "NFL", "type": "league", "logo": "https://media.api-sports.io/american-football/leagues/1.png" },
+  "league": { "name": "NFL", "type": "league", "logo": "https://media.api-sports.io/american-football/leagues/1.png" },
   "country": { "name": "USA", "code": "US", "flag": "https://media.api-sports.io/flags/us.svg" },
   "seasons": [
     {
@@ -287,74 +293,55 @@ Ejemplo mínimo para POST:
 
 | Modo | Query params |
 |------|--------------|
-| Por liga y temporada | `league`, `season`, `timezone` (opcional) |
-| Detalle por id | `id={gameExternalId}` |
-| Por equipo | `league`, `season`, `team` |
+| Por liga y temporada | `league` (UUID), `season`, `timezone` (opcional) |
+| Detalle por id | `id={gameUuid}` |
+| Por equipo | `league`, `season`, `team` (UUIDs) |
 
 ```http
-GET /american-football/games?league=1&season=2022&timezone=UTC
-GET /american-football/games?id=4550
-GET /american-football/games?league=1&season=2022&team=25
-GET /american-football/games/4550
+GET /american-football/games?league=<uuid>&season=2022
+GET /american-football/games?id=<game-uuid>
+GET /american-football/games?league=<uuid>&season=2022&team=<team-uuid>
+GET /american-football/games/<game-uuid>
 ```
 
-**POST** — crear partido. Body = `GameItem` completo.
+**POST** — crear partido. Body = `GameCreate` (**sin** `game.id`).
 
 **PATCH** `/american-football/games/{gameId}`:
 
 - Merge parcial (default): combina con payload almacenado.
-- Reemplazo total: `?replace=true` + body `GameItem` completo.
+- Reemplazo total: `?replace=true` + body `GameCreate` completo.
 
 **DELETE** `/american-football/games/{gameId}` → `204`.
 
-#### `GameItem` (`response[]`)
+#### Tipos
 
 ```typescript
-interface GameItem {
+interface GameCreate {
   game: {
-    id: number | string;
     stage?: string | null;
     week?: string | null;
-    date?: {
-      timezone?: string | null;
-      date?: string | null;      // "YYYY-MM-DD"
-      time?: string | null;      // "HH:mm"
-      timestamp?: number | null;
-    };
+    date?: { timezone?: string | null; date?: string | null; time?: string | null; timestamp?: number | null };
     venue?: { name?: string | null; city?: string | null };
     status?: { short?: string | null; long?: string | null; timer?: string | null };
   };
-  league: {
-    id: number | string;
-    name: string;
-    season?: number | string;
-    logo?: string | null;
-    country?: { name: string; code?: string | null; flag?: string | null };
-  };
+  league: { id: string; name: string; season?: number | string; logo?: string | null; country?: CountryItem };
   teams: {
-    home: { id: number | string; name: string; logo?: string | null };
-    away: { id: number | string; name: string; logo?: string | null };
+    home: { id: string; name: string; logo?: string | null };
+    away: { id: string; name: string; logo?: string | null };
   };
-  scores?: {
-    home?: {
-      quarter_1?: number | null;
-      quarter_2?: number | null;
-      quarter_3?: number | null;
-      quarter_4?: number | null;
-      overtime?: number | null;
-      total?: number | null;
-    };
-    away?: { /* mismo shape */ };
-  };
+  scores?: { home?: GameScoreSide; away?: GameScoreSide };
+}
+
+interface GameItem extends GameCreate {
+  game: GameCreate['game'] & { id: string };
 }
 ```
 
-Ejemplo POST (partido terminado):
+Ejemplo POST (usar UUIDs reales de liga y equipos):
 
 ```json
 {
   "game": {
-    "id": 4550,
     "stage": "Regular Season",
     "week": "5",
     "date": { "timezone": "UTC", "date": "2022-09-30", "time": "00:00", "timestamp": 1664496000 },
@@ -362,15 +349,15 @@ Ejemplo POST (partido terminado):
     "status": { "short": "FT", "long": "Finished", "timer": null }
   },
   "league": {
-    "id": 1,
+    "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
     "name": "NFL",
     "season": "2022",
     "logo": "https://media.api-sports.io/american-football/leagues/1.png",
     "country": { "name": "USA", "code": "US", "flag": "https://media.api-sports.io/flags/us.svg" }
   },
   "teams": {
-    "home": { "id": 25, "name": "Miami Dolphins", "logo": "https://media.api-sports.io/american-football/teams/25.png" },
-    "away": { "id": 7, "name": "Detroit Lions", "logo": "https://media.api-sports.io/american-football/teams/7.png" }
+    "home": { "id": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff", "name": "Miami Dolphins", "logo": "https://media.api-sports.io/american-football/teams/25.png" },
+    "away": { "id": "cccccccc-dddd-eeee-ffff-000000000000", "name": "Detroit Lions", "logo": "https://media.api-sports.io/american-football/teams/7.png" }
   },
   "scores": {
     "home": { "quarter_1": 14, "quarter_2": 3, "quarter_3": 14, "quarter_4": 7, "overtime": null, "total": 38 },
@@ -379,165 +366,116 @@ Ejemplo POST (partido terminado):
 }
 ```
 
-> Si el equipo no existe en Firestore, POST `/american-football/games` crea un stub de equipo a partir de `teams.home.id` / `teams.away.id`. Se recomienda cargar equipos antes con POST `/american-football/teams`.
-
 ---
 
 ### `/american-football/teams`
 
-**GET** — requiere `league` y `season`.
+**GET** — requiere `league` (UUID) y `season`.
 
 ```http
-GET /american-football/teams?league=1&season=2022
+GET /american-football/teams?league=<uuid>&season=2022
 ```
 
-**POST** — `?league={externalId}` requerido.
+**POST** — `?league={uuid}` requerido. Body sin `id`.
 
-**PATCH / DELETE** — `?id={teamId}` (id interno Firestore o external id api-sports).
+**PATCH / DELETE** — `?id={teamUuid}`.
 
-#### `TeamItem` (`response[]`)
+#### Tipos
 
 ```typescript
-interface TeamItem {
-  id: number | string;
+interface TeamCreate {
   name: string;
   logo?: string | null;
+  altLogo?: string | null;
+}
+
+interface TeamItem extends TeamCreate {
+  id: string;
 }
 ```
 
 ```json
 {
-  "id": 25,
   "name": "Miami Dolphins",
   "logo": "https://media.api-sports.io/american-football/teams/25.png"
 }
 ```
 
-> El formulario NFL del portal (`team-form.ts`) también captura `code`, `city`, `conference`, `division` para `/v1` — esos campos **no** forman parte del BFF `/american-football/teams`. Para paridad api-sports usar solo `{ id, name, logo }` en POST/PATCH BFF.
+> El formulario NFL del portal también captura `code`, `city`, `conference`, `division` para contexto UI — el BFF `/american-football/teams` persiste `{ name, logo, altLogo }` en POST/PATCH.
 
 ---
 
 ### `/american-football/standings`
 
-**GET** — requiere `league` y `season`; filtro opcional `conference`.
+**GET** — requiere `league` (UUID) y `season`; filtro opcional `conference`.
 
 ```http
-GET /american-football/standings?league=1&season=2022&conference=American%20Football%20Conference
+GET /american-football/standings?league=<uuid>&season=2022
 ```
 
-**POST** — body = `StandingItem` (una fila por equipo).
+**POST** — body = `StandingCreate` (sin `id`).
 
-**PATCH / DELETE** — `?id={standingId}`.
+**PATCH / DELETE** — `?id={standingUuid}`.
 
-#### `StandingItem` (`response[]`)
+#### Tipos
 
 ```typescript
-interface StandingItem {
-  league: {
-    id: number | string;
-    name: string;
-    season?: number | string;
-    logo?: string | null;
-    country?: { name: string; code?: string | null; flag?: string | null };
-  };
+interface StandingCreate {
+  league: GameCreate['league'];
   conference?: string | null;
   division?: string | null;
   position?: number | null;
-  team: { id: number | string; name: string; logo?: string | null };
+  team: { id: string; name: string; logo?: string | null };
   won?: number | null;
   lost?: number | null;
   ties?: number | null;
-  points?: {
-    for?: number | null;
-    against?: number | null;
-    difference?: number | null;
-  };
-  records?: {
-    home?: string | null;
-    road?: string | null;
-    conference?: string | null;
-    division?: string | null;
-  };
+  points?: { for?: number | null; against?: number | null; difference?: number | null };
+  records?: { home?: string | null; road?: string | null; conference?: string | null; division?: string | null };
   streak?: string | null;
-  ncaa_conference?: {
-    won?: number | null;
-    lost?: number | null;
-    points?: { for?: number | null; against?: number | null };
-  };
+  ncaa_conference?: { won?: number | null; lost?: number | null; points?: { for?: number | null; against?: number | null } };
+}
+
+interface StandingItem extends StandingCreate {
+  id: string;
 }
 ```
 
-Ejemplo POST:
-
-```json
-{
-  "league": {
-    "id": 1,
-    "name": "NFL",
-    "season": 2022,
-    "logo": "https://media.api-sports.io/american-football/leagues/1.png",
-    "country": { "name": "USA", "code": "US", "flag": "https://media.api-sports.io/flags/us.svg" }
-  },
-  "conference": "American Football Conference",
-  "division": "East",
-  "position": 1,
-  "team": { "id": 25, "name": "Miami Dolphins", "logo": "https://media.api-sports.io/american-football/teams/25.png" },
-  "won": 3,
-  "lost": 1,
-  "ties": 0,
-  "points": { "for": 98, "against": 91, "difference": 7 },
-  "records": { "home": "2-0", "road": "1-1", "conference": "3-1", "division": "2-0" },
-  "streak": "L1",
-  "ncaa_conference": { "won": null, "lost": null, "points": { "for": null, "against": null } }
-}
-```
-
-> POST `/american-football/standings` exige que el equipo (`team.id`) ya exista en la liga.
+> POST exige que el equipo (`team.id`) ya exista en la liga.
 
 ---
 
-## Tipos TypeScript sugeridos (portal)
+## Tipos TypeScript (portal)
 
-```typescript
-/** Envelope genérico BFF NFL */
-export interface AmericanFootballEnvelope<T> {
-  get: string;
-  parameters: Record<string, string> | unknown[];
-  errors: unknown[] | Record<string, string>;
-  results: number;
-  paging?: { current: number; total: number };
-  response: T[];
-}
+Implementados en [`src/lib/american-football-bff-types.ts`](../src/lib/american-football-bff-types.ts):
 
-// Re-exportar items
-export type AmericanFootballCountryItem = { name: string; code?: string | null; flag?: string | null };
-export type AmericanFootballTeamItem = { id: number | string; name: string; logo?: string | null };
-// GameItem, LeagueItem, StandingItem — ver secciones arriba
-```
+- `AmericanFootballLeagueCreate` / `AmericanFootballLeagueItem`
+- `AmericanFootballTeamCreate` / `AmericanFootballTeamItem`
+- `AmericanFootballGameCreate` / `AmericanFootballGameItem`
+- `AmericanFootballStandingCreate` / `AmericanFootballStandingItem`
 
-Ubicación recomendada: `src/lib/american-football-bff-types.ts`.
+Helpers UUID: [`src/lib/american-football-forms/shared.ts`](../src/lib/american-football-forms/shared.ts) (`isCanonicalId`, `truncateCanonicalId`).
 
 ---
 
-## Lectura vs escritura en el portal hoy
+## Lectura vs escritura en el portal
 
-| Pantalla / flujo | Endpoint actual | Endpoint BFF American football (carga) |
-|------------------|-----------------|---------------------------|
+| Pantalla / flujo | Endpoint actual | Endpoint BFF (carga) |
+|------------------|-----------------|------------------------|
 | `/american-football` cobertura | `GET /v1/data-status` | — |
-| `/american-football` ligas listadas | `GET /v1/leagues?sport=american-football` | `GET /american-football/leagues` |
-| Editar equipos | `GET/PATCH /v1/teams/{id}` | `POST/PATCH /american-football/teams?league=1` |
-| Crear partidos | `POST /v1/leagues/{id}/matches` | `POST /american-football/games` con `GameItem` |
-| Clasificación | `GET /v1/leagues/{id}/standings` | `POST /american-football/standings` con `StandingItem` |
+| `/american-football` ligas | `GET /v1/leagues?sport=american-football` | `GET/POST /american-football/leagues` |
+| Equipos | `GET /v1/teams/{id}` | `POST/PATCH /american-football/teams?league=<uuid>` |
+| Partidos | — | `POST /american-football/games` con UUIDs de liga/equipos |
+| Clasificación | `GET /v1/leagues/{id}/standings` | `POST /american-football/standings` |
 
-La app Flutter NFL consume **`/american-football/*` en GET** con el mismo shape que api-sports. El portal debe escribir con esos mismos objetos para que Flutter lea datos consistentes.
+La app Flutter NFL consume **`/american-football/*` en GET** con el mismo envelope api-sports; los `id` en `response[]` son UUIDs canónicos.
 
 ---
 
 ## Verificación
 
 1. **Local:** API en `:3000`, portal en `:3001`, `NEXT_PUBLIC_API_BASE_URL=http://localhost:3000`.
-2. **Probar GET vacío:** `curl -s 'http://localhost:3000/american-football/leagues' | jq .results` → `0` hasta cargar datos.
-3. **Probar POST:** enviar un `LeagueItem` de ejemplo; verificar `results: 1` y `response[0]`.
-4. **Fixtures de referencia:** copiar JSON desde [`deportix-api/tests/fixtures/api-sports-nfl/`](../../deportix-api/tests/fixtures/api-sports-nfl/).
+2. **GET vacío:** `curl -s 'http://localhost:3000/american-football/leagues' | jq .results` → `0` tras reset.
+3. **POST liga:** enviar `LeagueCreate`; verificar `response[0].league.id` es UUID.
+4. **Cadena:** equipos → partidos → standings usando UUIDs copiados de respuestas previas.
 
-OpenAPI interactivo: `http://localhost:3000/docs` → tag **BFF NFL**.
+OpenAPI interactivo: `http://localhost:3000/docs` → tag **BFF American Football**.

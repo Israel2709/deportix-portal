@@ -7,7 +7,7 @@ import {
   buildAmericanFootballSeasonBody,
   validateAmericanFootballSeasonForm,
 } from '@/lib/american-football-forms/season-form';
-import { AmericanFootballFormShell, AmericanFootballTextField } from './AmericanFootballFormShell';
+import { AmericanFootballFieldGrid, AmericanFootballFormShell, AmericanFootballTextField } from './AmericanFootballFormShell';
 import { submitLabelForMode, useAmericanFootballSectionState } from './useAmericanFootballSectionState';
 
 export function AmericanFootballSeasonSection({
@@ -98,7 +98,8 @@ export function AmericanFootballSeasonSection({
       }}
       onSubmit={() => void handleSubmit()}
       submitting={state.submitting}
-      submitLabel={submitLabelForMode(state.mode)}
+      submitLabel={state.mode === 'create' ? 'Crear temporada' : submitLabelForMode(state.mode)}
+      submitAlign="right"
       confirmDelete={state.confirmDelete}
       onConfirmDelete={() => void handleSubmit()}
       onCancelDelete={() => state.setConfirmDelete(null)}
@@ -129,19 +130,21 @@ export function AmericanFootballSeasonSection({
         )
       }
     >
-      <AmericanFootballTextField
-        label="ID liga (api-sports)"
-        value={state.values.queryLeague}
-        onChange={(v) => state.updateField('queryLeague', v)}
-      />
-      {(state.mode === 'create' || state.mode === 'delete') && (
+      <AmericanFootballFieldGrid>
         <AmericanFootballTextField
-          label="Año"
-          value={state.values.year}
-          onChange={(v) => state.updateField('year', v)}
-          type="number"
+          label="ID liga (api-sports)"
+          value={state.values.queryLeague}
+          onChange={(v) => state.updateField('queryLeague', v)}
         />
-      )}
+        {(state.mode === 'create' || state.mode === 'delete') && (
+          <AmericanFootballTextField
+            label="Año"
+            value={state.values.year}
+            onChange={(v) => state.updateField('year', v)}
+            type="number"
+          />
+        )}
+      </AmericanFootballFieldGrid>
       {state.mode === 'edit' && (
         <p className="text-sm text-slate-400">Las temporadas solo admiten crear o eliminar.</p>
       )}

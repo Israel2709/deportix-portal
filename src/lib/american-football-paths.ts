@@ -11,9 +11,9 @@ export function americanFootballTabPath(tab: AmericanFootballTab): string {
   return tab === 'coverage' ? '/american-football' : `/american-football?tab=${tab}`;
 }
 
-/** Browse path for an American football league (uses external id when present). */
+/** Browse path for an American football league (canonical document id). */
 export function americanFootballLeaguePath(league: Pick<League, 'id' | 'externalId'>): string {
-  return `/american-football/leagues/${encodeURIComponent(league.externalId ?? league.id)}`;
+  return `/american-football/leagues/${encodeURIComponent(league.id)}`;
 }
 
 export function americanFootballLeagueBrowsePath(leagueId: string): string {

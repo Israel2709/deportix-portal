@@ -1,10 +1,14 @@
 import { ApiClientError, apiDelete, apiGet, apiPatch, apiPost } from './api';
 import type {
   AmericanFootballEnvelope,
+  AmericanFootballGameCreate,
   AmericanFootballGameItem,
+  AmericanFootballLeagueCreate,
   AmericanFootballLeagueItem,
   AmericanFootballSeasonBody,
+  AmericanFootballStandingCreate,
   AmericanFootballStandingItem,
+  AmericanFootballTeamCreate,
   AmericanFootballTeamItem,
   AmericanFootballTimezonePatchBody,
   AmericanFootballTimezonePostBody,
@@ -68,19 +72,21 @@ export async function getAmericanFootballLeagues(query: AmericanFootballLeagueQu
   return americanFootballRequest('GET', `/american-football/leagues${buildQuery(query as Record<string, string | number | undefined | null>)}`);
 }
 
-export async function createAmericanFootballLeague(body: AmericanFootballLeagueItem): Promise<AmericanFootballEnvelope<AmericanFootballLeagueItem>> {
+export async function createAmericanFootballLeague(
+  body: AmericanFootballLeagueCreate,
+): Promise<AmericanFootballEnvelope<AmericanFootballLeagueItem>> {
   return americanFootballRequest('POST', '/american-football/leagues', body);
 }
 
 export async function updateAmericanFootballLeague(
-  externalId: string | number,
-  body: AmericanFootballLeagueItem,
+  leagueId: string,
+  body: AmericanFootballLeagueCreate,
 ): Promise<AmericanFootballEnvelope<AmericanFootballLeagueItem>> {
-  return americanFootballRequest('PATCH', `/american-football/leagues${buildQuery({ id: externalId })}`, body);
+  return americanFootballRequest('PATCH', `/american-football/leagues${buildQuery({ id: leagueId })}`, body);
 }
 
-export async function deleteAmericanFootballLeague(externalId: string | number): Promise<void> {
-  await americanFootballRequest('DELETE', `/american-football/leagues${buildQuery({ id: externalId })}`);
+export async function deleteAmericanFootballLeague(leagueId: string): Promise<void> {
+  await americanFootballRequest('DELETE', `/american-football/leagues${buildQuery({ id: leagueId })}`);
 }
 
 // --- Seasons ---
@@ -117,15 +123,15 @@ export async function getAmericanFootballTeams(query: AmericanFootballTeamQuery)
 }
 
 export async function createAmericanFootballTeam(
-  leagueId: string | number,
-  body: AmericanFootballTeamItem,
+  leagueId: string,
+  body: AmericanFootballTeamCreate,
 ): Promise<AmericanFootballEnvelope<AmericanFootballTeamItem>> {
   return americanFootballRequest('POST', `/american-football/teams${buildQuery({ league: leagueId })}`, body);
 }
 
 export async function updateAmericanFootballTeam(
-  teamId: string | number,
-  body: AmericanFootballTeamItem,
+  teamId: string,
+  body: AmericanFootballTeamCreate,
 ): Promise<AmericanFootballEnvelope<AmericanFootballTeamItem>> {
   return americanFootballRequest('PATCH', `/american-football/teams${buildQuery({ id: teamId })}`, body);
 }
@@ -151,13 +157,15 @@ export async function getAmericanFootballGames(query: AmericanFootballGameQuery 
   return americanFootballRequest('GET', `/american-football/games${buildQuery(query as Record<string, string | number | undefined | null>)}`);
 }
 
-export async function createAmericanFootballGame(body: AmericanFootballGameItem): Promise<AmericanFootballEnvelope<AmericanFootballGameItem>> {
+export async function createAmericanFootballGame(
+  body: AmericanFootballGameCreate,
+): Promise<AmericanFootballEnvelope<AmericanFootballGameItem>> {
   return americanFootballRequest('POST', '/american-football/games', body);
 }
 
 export async function updateAmericanFootballGame(
-  gameId: string | number,
-  body: AmericanFootballGameItem,
+  gameId: string,
+  body: AmericanFootballGameCreate,
   replace = false,
 ): Promise<AmericanFootballEnvelope<AmericanFootballGameItem>> {
   return americanFootballRequest(
@@ -186,14 +194,14 @@ export async function getAmericanFootballStandings(
 }
 
 export async function createAmericanFootballStanding(
-  body: AmericanFootballStandingItem,
+  body: AmericanFootballStandingCreate,
 ): Promise<AmericanFootballEnvelope<AmericanFootballStandingItem>> {
   return americanFootballRequest('POST', '/american-football/standings', body);
 }
 
 export async function updateAmericanFootballStanding(
-  standingId: string | number,
-  body: AmericanFootballStandingItem,
+  standingId: string,
+  body: AmericanFootballStandingCreate,
 ): Promise<AmericanFootballEnvelope<AmericanFootballStandingItem>> {
   return americanFootballRequest('PATCH', `/american-football/standings${buildQuery({ id: standingId })}`, body);
 }

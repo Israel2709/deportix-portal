@@ -17,6 +17,7 @@ import {
   validateAmericanFootballGameForm,
 } from '@/lib/american-football-forms/game-form';
 import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
+import { truncateCanonicalId } from '@/lib/american-football-forms/shared';
 import {
   AmericanFootballCheckboxField,
   AmericanFootballFieldGrid,
@@ -130,7 +131,7 @@ export function AmericanFootballGameSection({
     }
 
     if (state.mode === 'delete' && !state.confirmDelete) {
-      state.setConfirmDelete(`¿Eliminar el partido ${state.values.gameId}?`);
+      state.setConfirmDelete(`¿Eliminar el partido ${truncateCanonicalId(state.values.gameId)}?`);
       return;
     }
 
@@ -139,7 +140,11 @@ export function AmericanFootballGameSection({
       const body = buildAmericanFootballGameBody(state.values);
       if (state.mode === 'create') {
         const res = await createAmericanFootballGame(body);
+        const created = res.response[0];
         state.handleSuccess('Partido creado', res.results);
+        if (created?.game.id) {
+          state.toast.info('ID asignado', created.game.id);
+        }
       } else if (state.mode === 'edit') {
         const res = await updateAmericanFootballGame(state.values.gameId, body, state.values.replaceOnPatch);
         state.handleSuccess('Partido actualizado', res.results);
@@ -157,7 +162,7 @@ export function AmericanFootballGameSection({
   }
 
   function applyTeam(side: 'home' | 'away', teamId: string) {
-    const team = teams.find((t) => String(t.id) === teamId);
+    const team = teams.find((t) => t.id === teamId);
     if (team) state.setValues(applyTeamToGameSide(state.values, side, team));
   }
 
@@ -165,7 +170,7 @@ export function AmericanFootballGameSection({
     <AmericanFootballFormShell
       step={step}
       title="Partidos"
-      description="Carga partidos con shape GameItem. Carga equipos antes para datos completos."
+      description="Carga partidos referenciando equipos y liga por UUID. El ID del partido lo genera la API."
       mode={state.mode}
       onModeChange={(mode) => {
         state.setMode(mode);
@@ -185,11 +190,14 @@ export function AmericanFootballGameSection({
           <ul className="space-y-2">
             {rows.map((row) => (
               <li
-                key={String(row.game.id)}
+                key={row.game.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-800 px-3 py-2 text-sm"
               >
                 <span className="text-slate-200">
-                  #{row.game.id} · {row.teams.home.name} vs {row.teams.away.name}
+                  <span className="font-mono text-xs text-slate-500" title={row.game.id}>
+                    {truncateCanonicalId(row.game.id)}
+                  </span>{' '}
+                  · {row.teams.home.name} vs {row.teams.away.name}
                   {row.game.week ? ` · Sem ${row.game.week}` : ''}
                 </span>
                 <AmericanFootballRowActions
@@ -199,7 +207,7 @@ export function AmericanFootballGameSection({
                   }}
                   onDelete={() => {
                     state.setMode('delete');
-                    state.setValues({ ...state.values, gameId: String(row.game.id) });
+                    state.setValues({ ...state.values, gameId: row.game.id });
                   }}
                 />
               </li>
@@ -210,22 +218,38 @@ export function AmericanFootballGameSection({
     >
       {state.mode === 'query' && (
         <AmericanFootballFieldGrid>
-          <AmericanFootballTextField label="Liga" value={state.values.queryLeague} onChange={(v) => state.updateField('queryLeague', v)} />
+          <AmericanFootballTextField label="Liga (UUID)" value={state.values.queryLeague} onChange={(v) => state.updateField('queryLeague', v)} />
           <AmericanFootballTextField label="Temporada" value={state.values.querySeason} onChange={(v) => state.updateField('querySeason', v)} />
           <AmericanFootballTextField label="Timezone" value={state.values.queryTimezone} onChange={(v) => state.updateField('queryTimezone', v)} />
-          <AmericanFootballTextField label="Equipo (filtro)" value={state.values.queryTeam} onChange={(v) => state.updateField('queryTeam', v)} />
-          <AmericanFootballTextField label="ID partido" value={state.values.queryGameId} onChange={(v) => state.updateField('queryGameId', v)} hint="Opcional: consulta directa por id" />
+          <AmericanFootballTextField label="Equipo (filtro, UUID)" value={state.values.queryTeam} onChange={(v) => state.updateField('queryTeam', v)} />
+          <AmericanFootballTextField label="ID partido (UUID)" value={state.values.queryGameId} onChange={(v) => state.updateField('queryGameId', v)} hint="Opcional: consulta directa por id" />
         </AmericanFootballFieldGrid>
       )}
 
-      {state.mode === 'delete' && (
-        <AmericanFootballTextField label="ID partido" value={state.values.gameId} onChange={(v) => state.updateField('gameId', v)} />
+      {state.mode === 'delete' && state.values.gameId && (
+        <p className="text-xs font-mono text-slate-400">Eliminar: {state.values.gameId}</p>
       )}
 
       {(state.mode === 'create' || state.mode === 'edit') && (
         <div className="space-y-4">
+          {state.mode === 'edit' && (
+            <p className="text-xs font-mono text-slate-400">Editando partido: {state.values.gameId}</p>
+          )}
+          {(state.mode === 'create') && (
+            <AmericanFootballFieldGrid>
+              <AmericanFootballTextField
+                label="Liga (UUID, query)"
+                value={state.values.queryLeague}
+                onChange={(v) => {
+                  state.updateField('queryLeague', v);
+                  state.updateField('leagueId', v);
+                }}
+                hint="UUID de la liga — mismo valor se usa en liga embebida"
+              />
+              <AmericanFootballTextField label="Temporada (liga embebida)" value={state.values.leagueSeason} onChange={(v) => state.updateField('leagueSeason', v)} />
+            </AmericanFootballFieldGrid>
+          )}
           <AmericanFootballFieldGrid>
-            <AmericanFootballTextField label="ID partido" value={state.values.gameId} onChange={(v) => state.updateField('gameId', v)} />
             <AmericanFootballTextField label="Etapa" value={state.values.stage} onChange={(v) => state.updateField('stage', v)} />
             <AmericanFootballTextField label="Semana" value={state.values.week} onChange={(v) => state.updateField('week', v)} />
             <AmericanFootballTextField label="Fecha" value={state.values.dateDate} onChange={(v) => state.updateField('dateDate', v)} type="date" />
@@ -246,65 +270,50 @@ export function AmericanFootballGameSection({
             />
           )}
           <p className="text-sm font-medium text-slate-200">Equipos</p>
-          {teams.length > 0 && (
+          {teams.length > 0 ? (
             <AmericanFootballFieldGrid>
               <label className="block text-sm text-slate-200">
-                Local (desde lista)
+                Local
                 <select
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
-                  value=""
+                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 pl-3 py-2 text-sm"
+                  value={state.values.homeId}
                   onChange={(e) => applyTeam('home', e.target.value)}
                 >
                   <option value="">Seleccionar…</option>
                   {teams.map((t) => (
-                    <option key={String(t.id)} value={String(t.id)}>
+                    <option key={t.id} value={t.id}>
                       {t.name}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="block text-sm text-slate-200">
-                Visitante (desde lista)
+                Visitante
                 <select
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
-                  value=""
+                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 pl-3 py-2 text-sm"
+                  value={state.values.awayId}
                   onChange={(e) => applyTeam('away', e.target.value)}
                 >
                   <option value="">Seleccionar…</option>
                   {teams.map((t) => (
-                    <option key={String(t.id)} value={String(t.id)}>
+                    <option key={t.id} value={t.id}>
                       {t.name}
                     </option>
                   ))}
                 </select>
               </label>
             </AmericanFootballFieldGrid>
+          ) : (
+            <p className="text-sm text-amber-400">Carga equipos en el paso anterior e indica liga/temporada en query.</p>
+          )}
+          {(state.values.homeId || state.values.awayId) && (
+            <p className="text-xs font-mono text-slate-500">
+              {state.values.homeId && `Local: ${truncateCanonicalId(state.values.homeId)}`}
+              {state.values.homeId && state.values.awayId && ' · '}
+              {state.values.awayId && `Visitante: ${truncateCanonicalId(state.values.awayId)}`}
+            </p>
           )}
           <AmericanFootballFieldGrid>
-            <AmericanFootballTextField label="Local ID" value={state.values.homeId} onChange={(v) => state.updateField('homeId', v)} />
-            <AmericanFootballTextField label="Local nombre" value={state.values.homeName} onChange={(v) => state.updateField('homeName', v)} />
-            <ImageUrlInput
-              label="Logo local"
-              value={state.values.homeLogo}
-              onChange={(v) => state.updateField('homeLogo', v)}
-              purpose="team_logo"
-              entityId={state.values.homeId}
-              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
-            />
-            <AmericanFootballTextField label="Visitante ID" value={state.values.awayId} onChange={(v) => state.updateField('awayId', v)} />
-            <AmericanFootballTextField label="Visitante nombre" value={state.values.awayName} onChange={(v) => state.updateField('awayName', v)} />
-            <ImageUrlInput
-              label="Logo visitante"
-              value={state.values.awayLogo}
-              onChange={(v) => state.updateField('awayLogo', v)}
-              purpose="team_logo"
-              entityId={state.values.awayId}
-              onUploadError={(msg) => state.toast.error('Error al subir', msg)}
-            />
-          </AmericanFootballFieldGrid>
-          <p className="text-sm font-medium text-slate-200">Liga embebida</p>
-          <AmericanFootballFieldGrid>
-            <AmericanFootballTextField label="Liga ID" value={state.values.leagueId} onChange={(v) => state.updateField('leagueId', v)} />
             <AmericanFootballTextField label="Liga nombre" value={state.values.leagueName} onChange={(v) => state.updateField('leagueName', v)} />
             <ImageUrlInput
               label="Logo liga"

@@ -25,6 +25,9 @@ import { ErrorState, LoadingState } from '@/components/states/States';
 
 const inputClassName =
   'mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100';
+
+const selectClassName =
+  'mt-1 w-full rounded-md border border-slate-700 bg-slate-950 pl-3 py-2 text-sm text-slate-100';
 const labelClassName = 'block text-sm font-medium text-slate-200';
 
 export function AddMatchView({
@@ -175,7 +178,7 @@ export function AddMatchView({
                 onChange={(event) =>
                   updateField('status', event.target.value as MatchFormValues['status'])
                 }
-                className={inputClassName}
+                className={selectClassName}
                 disabled={submitting}
               >
                 {MATCH_STATUS_OPTIONS.map((status) => (
@@ -217,7 +220,7 @@ export function AddMatchView({
                   required
                   value={values.homeTeamId}
                   onChange={(event) => handleHomeTeamChange(event.target.value)}
-                  className={inputClassName}
+                  className={selectClassName}
                   disabled={submitting}
                 >
                   <option value="">Selecciona un equipo</option>
@@ -258,7 +261,7 @@ export function AddMatchView({
                   required
                   value={values.awayTeamId}
                   onChange={(event) => updateField('awayTeamId', event.target.value)}
-                  className={inputClassName}
+                  className={selectClassName}
                   disabled={submitting}
                 >
                   <option value="">Selecciona un equipo</option>

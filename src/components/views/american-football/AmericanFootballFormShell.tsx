@@ -2,7 +2,8 @@
 
 import type { ReactNode } from 'react';
 import { Card } from '@/components/ui/Ui';
-import { AMERICAN_FOOTBALL_BUTTON_PRIMARY, AMERICAN_FOOTBALL_BUTTON_SECONDARY, AMERICAN_FOOTBALL_FORM_MODES, type AmericanFootballFormMode } from '@/lib/american-football-forms/shared';
+import { FormSelect } from '@/components/ui/FormSelect';
+import { AMERICAN_FOOTBALL_BUTTON_DANGER, AMERICAN_FOOTBALL_BUTTON_SECONDARY, AMERICAN_FOOTBALL_FORM_MODES, AMERICAN_FOOTBALL_SELECT_CLASS, americanFootballModeTabClass, americanFootballSubmitButtonClass, type AmericanFootballFormMode } from '@/lib/american-football-forms/shared';
 
 export function AmericanFootballFormShell({
   step,
@@ -19,6 +20,7 @@ export function AmericanFootballFormShell({
   confirmDelete,
   onConfirmDelete,
   onCancelDelete,
+  submitAlign = 'left',
 }: {
   step: number;
   title: string;
@@ -34,6 +36,7 @@ export function AmericanFootballFormShell({
   confirmDelete?: string | null;
   onConfirmDelete?: () => void;
   onCancelDelete?: () => void;
+  submitAlign?: 'left' | 'right';
 }) {
   return (
     <Card className="space-y-4">
@@ -49,11 +52,7 @@ export function AmericanFootballFormShell({
             key={item.id}
             type="button"
             onClick={() => onModeChange(item.id)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-              mode === item.id
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-            }`}
+            className={americanFootballModeTabClass(item.id, mode === item.id)}
           >
             {item.label}
           </button>
@@ -77,7 +76,7 @@ export function AmericanFootballFormShell({
                 type="button"
                 onClick={onConfirmDelete}
                 disabled={submitting}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
+                className={AMERICAN_FOOTBALL_BUTTON_DANGER}
               >
                 Confirmar eliminación
               </button>
@@ -92,9 +91,11 @@ export function AmericanFootballFormShell({
             </div>
           </div>
         ) : (
-          <button type="submit" disabled={submitting} className={AMERICAN_FOOTBALL_BUTTON_PRIMARY}>
-            {submitting ? 'Enviando…' : submitLabel}
-          </button>
+          <div className={submitAlign === 'right' ? 'flex justify-end' : undefined}>
+            <button type="submit" disabled={submitting} className={americanFootballSubmitButtonClass(mode)}>
+              {submitting ? 'Enviando…' : submitLabel}
+            </button>
+          </div>
         )}
       </form>
 
@@ -109,7 +110,7 @@ export function AmericanFootballFormShell({
 }
 
 export function AmericanFootballFieldGrid({ children }: { children: ReactNode }) {
-  return <div className="grid gap-4 sm:grid-cols-2">{children}</div>;
+  return <div className="grid gap-4 sm:grid-cols-3">{children}</div>;
 }
 
 export function AmericanFootballTextField({
@@ -137,6 +138,44 @@ export function AmericanFootballTextField({
         placeholder={placeholder}
         className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
       />
+      {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
+    </label>
+  );
+}
+
+export function AmericanFootballSelectField({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+  disabled?: boolean;
+  hint?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="block text-sm font-medium text-slate-200">{label}</span>
+      <FormSelect
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled || options.length === 0}
+        className={`${AMERICAN_FOOTBALL_SELECT_CLASS} disabled:opacity-50`}
+      >
+        {placeholder && <option value="">{placeholder}</option>}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </FormSelect>
       {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
     </label>
   );

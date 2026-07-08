@@ -71,7 +71,7 @@ export function Explorer() {
             setResult(null);
             setFatal(null);
           }}
-          className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+          className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 pl-3 py-2 text-sm text-slate-100"
         >
           {EXPLORER_ENDPOINTS.map((e) => (
             <option key={e.id} value={e.id}>

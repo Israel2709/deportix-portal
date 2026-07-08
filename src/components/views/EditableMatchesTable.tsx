@@ -16,6 +16,8 @@ import { isLocalMatch } from '@/lib/local-matches';
 
 const inputClassName =
   'w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100';
+const selectClassName =
+  'w-full rounded border border-slate-700 bg-slate-950 pl-2 py-1 text-sm text-slate-100';
 const scoreInputClassName =
   'w-10 min-w-10 rounded border border-slate-700 bg-slate-950 px-1 py-1 text-center text-sm tabular-nums text-slate-100';
 
@@ -207,7 +209,7 @@ export function EditableMatchesTable({
                       aria-label={`Estado de ${match.home.name ?? 'local'} vs ${match.away.name ?? 'visitante'}`}
                       value={draft.status}
                       onChange={(event) => updateDraft(match.id, match, { status: event.target.value })}
-                      className={inputClassName}
+                      className={selectClassName}
                       disabled={isBusy}
                     >
                       {MATCH_STATUS_OPTIONS.map((status) => (

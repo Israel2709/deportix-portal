@@ -1,61 +1,61 @@
-import type { AmericanFootballTeamItem } from '../american-football-bff-types';
-import { nullableString, parseRequiredInt } from './shared';
+import type { AmericanFootballTeamCreate, AmericanFootballTeamItem } from '../american-football-bff-types';
+import { nullableString, requireCanonicalId } from './shared';
 
 export interface AmericanFootballTeamFormValues {
   queryLeague: string;
   querySeason: string;
   teamId: string;
   deleteId: string;
-  id: string;
   name: string;
   logo: string;
   altLogo: string;
 }
 
 export const EMPTY_AMERICAN_FOOTBALL_TEAM_FORM: AmericanFootballTeamFormValues = {
-  queryLeague: '1',
+  queryLeague: '',
   querySeason: '2022',
   teamId: '',
   deleteId: '',
-  id: '25',
-  name: 'Miami Dolphins',
-  logo: 'https://media.api-sports.io/american-football/teams/25.png',
+  name: '',
+  logo: '',
   altLogo: '',
 };
 
 export function teamToFormValues(item: AmericanFootballTeamItem): AmericanFootballTeamFormValues {
   return {
     ...EMPTY_AMERICAN_FOOTBALL_TEAM_FORM,
-    teamId: String(item.id),
-    deleteId: String(item.id),
-    id: String(item.id),
+    teamId: item.id,
+    deleteId: item.id,
     name: item.name,
     logo: item.logo ?? '',
     altLogo: item.altLogo ?? '',
   };
 }
 
-export function validateAmericanFootballTeamForm(values: AmericanFootballTeamFormValues, mode: 'create' | 'edit' | 'delete' | 'query'): string | null {
+export function validateAmericanFootballTeamForm(
+  values: AmericanFootballTeamFormValues,
+  mode: 'create' | 'edit' | 'delete' | 'query',
+): string | null {
   if (mode === 'query') {
-    if (!values.queryLeague.trim()) return 'La liga es obligatoria para consultar.';
+    if (!values.queryLeague.trim()) return 'La liga es obligatoria para consultar (UUID o id legacy).';
     if (!values.querySeason.trim()) return 'La temporada es obligatoria para consultar.';
     return null;
   }
   if (mode === 'delete') {
-    if (!values.deleteId.trim()) return 'El ID del equipo es obligatorio para eliminar.';
+    if (requireCanonicalId(values.deleteId, 'ID') === 'invalid') {
+      return 'Selecciona un equipo de la lista para eliminar.';
+    }
     return null;
   }
-  const id = parseRequiredInt(values.id, 'ID');
-  if (id === 'invalid') return 'El ID del equipo debe ser un entero válido.';
   if (!values.name.trim()) return 'El nombre es obligatorio.';
-  if (mode === 'edit' && !values.teamId.trim()) return 'El ID del equipo es obligatorio para editar.';
+  if (mode === 'edit' && requireCanonicalId(values.teamId, 'ID') === 'invalid') {
+    return 'Selecciona un equipo de la lista para editar.';
+  }
   return null;
 }
 
-export function buildAmericanFootballTeamBody(values: AmericanFootballTeamFormValues): AmericanFootballTeamItem {
-  const id = values.id.trim();
+export function buildAmericanFootballTeamBody(values: AmericanFootballTeamFormValues): AmericanFootballTeamCreate {
   return {
-    id: /^\d+$/.test(id) ? Number(id) : id,
     name: values.name.trim(),
     logo: nullableString(values.logo),
     altLogo: nullableString(values.altLogo),

@@ -1,5 +1,5 @@
-import type { AmericanFootballStandingItem, AmericanFootballTeamItem } from '../american-football-bff-types';
-import { nullableString, parseOptionalInt, parseRequiredInt } from './shared';
+import type { AmericanFootballStandingCreate, AmericanFootballStandingItem, AmericanFootballTeamItem } from '../american-football-bff-types';
+import { nullableString, parseOptionalInt, requireCanonicalId } from './shared';
 
 export interface AmericanFootballStandingFormValues {
   queryLeague: string;
@@ -34,43 +34,43 @@ export interface AmericanFootballStandingFormValues {
 }
 
 export const EMPTY_AMERICAN_FOOTBALL_STANDING_FORM: AmericanFootballStandingFormValues = {
-  queryLeague: '1',
+  queryLeague: '',
   querySeason: '2022',
   queryConference: '',
   standingId: '',
   deleteId: '',
-  leagueId: '1',
-  leagueName: 'NFL',
+  leagueId: '',
+  leagueName: '',
   leagueSeason: '2022',
-  leagueLogo: 'https://media.api-sports.io/american-football/leagues/1.png',
+  leagueLogo: '',
   leagueCountryName: 'USA',
   leagueCountryCode: 'US',
-  leagueCountryFlag: 'https://media.api-sports.io/flags/us.svg',
-  conference: 'American Football Conference',
-  division: 'East',
-  position: '1',
-  teamId: '25',
-  teamName: 'Miami Dolphins',
-  teamLogo: 'https://media.api-sports.io/american-football/teams/25.png',
-  won: '3',
-  lost: '1',
-  ties: '0',
-  pointsFor: '98',
-  pointsAgainst: '91',
-  pointsDifference: '7',
-  recordHome: '2-0',
-  recordRoad: '1-1',
-  recordConference: '3-1',
-  recordDivision: '2-0',
-  streak: 'L1',
+  leagueCountryFlag: '',
+  conference: '',
+  division: '',
+  position: '',
+  teamId: '',
+  teamName: '',
+  teamLogo: '',
+  won: '',
+  lost: '',
+  ties: '',
+  pointsFor: '',
+  pointsAgainst: '',
+  pointsDifference: '',
+  recordHome: '',
+  recordRoad: '',
+  recordConference: '',
+  recordDivision: '',
+  streak: '',
 };
 
 export function standingToFormValues(item: AmericanFootballStandingItem): AmericanFootballStandingFormValues {
   return {
     ...EMPTY_AMERICAN_FOOTBALL_STANDING_FORM,
-    standingId: String(item.team.id),
-    deleteId: String(item.team.id),
-    leagueId: String(item.league.id),
+    standingId: item.id,
+    deleteId: item.id,
+    leagueId: item.league.id,
     leagueName: item.league.name,
     leagueSeason: item.league.season != null ? String(item.league.season) : '',
     leagueLogo: item.league.logo ?? '',
@@ -80,7 +80,7 @@ export function standingToFormValues(item: AmericanFootballStandingItem): Americ
     conference: item.conference ?? '',
     division: item.division ?? '',
     position: item.position != null ? String(item.position) : '',
-    teamId: String(item.team.id),
+    teamId: item.team.id,
     teamName: item.team.name,
     teamLogo: item.team.logo ?? '',
     won: item.won != null ? String(item.won) : '',
@@ -103,7 +103,7 @@ export function applyTeamToStanding(
 ): AmericanFootballStandingFormValues {
   return {
     ...values,
-    teamId: String(team.id),
+    teamId: team.id,
     teamName: team.name,
     teamLogo: team.logo ?? '',
   };
@@ -119,12 +119,18 @@ export function validateAmericanFootballStandingForm(
     return null;
   }
   if (mode === 'delete') {
-    if (!values.deleteId.trim()) return 'El ID de la fila es obligatorio para eliminar.';
+    if (requireCanonicalId(values.deleteId, 'ID') === 'invalid') {
+      return 'Selecciona una fila de la lista para eliminar.';
+    }
     return null;
   }
-  if (!values.teamName.trim()) return 'El equipo es obligatorio.';
-  const teamId = parseRequiredInt(values.teamId, 'ID de equipo');
-  if (teamId === 'invalid') return 'El ID del equipo debe ser un entero válido.';
+  if (!values.teamName.trim()) return 'Selecciona un equipo.';
+  if (requireCanonicalId(values.teamId, 'Equipo') === 'invalid') {
+    return 'El equipo debe seleccionarse de la lista (UUID).';
+  }
+  if (requireCanonicalId(values.leagueId || values.queryLeague, 'Liga') === 'invalid') {
+    return 'Indica el UUID de la liga (query o embebida).';
+  }
   for (const [label, field] of [
     ['Victorias', values.won],
     ['Derrotas', values.lost],
@@ -134,15 +140,10 @@ export function validateAmericanFootballStandingForm(
     const parsed = parseOptionalInt(field);
     if (parsed === 'invalid') return `${label}: entero inválido.`;
   }
-  if (mode === 'edit' && !values.standingId.trim()) {
-    return 'El ID de la fila es obligatorio para editar.';
+  if (mode === 'edit' && requireCanonicalId(values.standingId, 'ID') === 'invalid') {
+    return 'Selecciona una fila de la lista para editar.';
   }
   return null;
-}
-
-function parseId(value: string): number | string {
-  const trimmed = value.trim();
-  return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed;
 }
 
 function toOptionalInt(value: string): number | null {
@@ -150,10 +151,12 @@ function toOptionalInt(value: string): number | null {
   return parsed === 'invalid' ? null : parsed;
 }
 
-export function buildAmericanFootballStandingBody(values: AmericanFootballStandingFormValues): AmericanFootballStandingItem {
+export function buildAmericanFootballStandingBody(
+  values: AmericanFootballStandingFormValues,
+): AmericanFootballStandingCreate {
   return {
     league: {
-      id: parseId(values.leagueId),
+      id: (values.leagueId || values.queryLeague).trim(),
       name: values.leagueName.trim(),
       season: values.leagueSeason.trim() ? values.leagueSeason.trim() : undefined,
       logo: nullableString(values.leagueLogo),
@@ -167,7 +170,7 @@ export function buildAmericanFootballStandingBody(values: AmericanFootballStandi
     division: nullableString(values.division),
     position: toOptionalInt(values.position),
     team: {
-      id: parseId(values.teamId),
+      id: values.teamId.trim(),
       name: values.teamName.trim(),
       logo: nullableString(values.teamLogo),
     },
