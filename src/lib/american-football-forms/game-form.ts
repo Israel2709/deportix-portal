@@ -96,7 +96,6 @@ export function gameToFormValues(item: AmericanFootballGameItem): AmericanFootba
     statusLong: item.game.status?.long ?? '',
     leagueId: item.league.id,
     leagueName: item.league.name,
-    leagueSeason: item.league.season != null ? String(item.league.season) : '',
     leagueLogo: item.league.logo ?? '',
     leagueCountryName: item.league.country?.name ?? 'USA',
     leagueCountryCode: item.league.country?.code ?? '',
