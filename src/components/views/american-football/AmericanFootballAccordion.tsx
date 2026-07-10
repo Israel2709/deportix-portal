@@ -4,11 +4,17 @@ export function AmericanFootballAccordion({
   title,
   count,
   defaultOpen = false,
+  filter,
+  onFilterChange,
+  filterPlaceholder = 'Buscar…',
   children,
 }: {
   title: string;
   count?: number;
   defaultOpen?: boolean;
+  filter?: string;
+  onFilterChange?: (value: string) => void;
+  filterPlaceholder?: string;
   children: ReactNode;
 }) {
   return (
@@ -25,7 +31,20 @@ export function AmericanFootballAccordion({
           </span>
         </span>
       </summary>
-      <div className="border-t border-slate-800 px-5 py-4">{children}</div>
+      <div className="border-t border-slate-800 px-5 py-4">
+        {onFilterChange && (
+          <div className="mb-4">
+            <input
+              type="search"
+              value={filter ?? ''}
+              onChange={(event) => onFilterChange(event.target.value)}
+              placeholder={filterPlaceholder}
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+        )}
+        {children}
+      </div>
     </details>
   );
 }

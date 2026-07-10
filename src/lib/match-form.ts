@@ -81,6 +81,20 @@ function toIsoDate(value: string): string | null {
   return date.toISOString();
 }
 
+/** Converts an ISO timestamp to the value expected by `<input type="datetime-local" />`. */
+export function isoToDatetimeLocal(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+export function datetimeLocalToIso(value: string): string | null {
+  return toIsoDate(value);
+}
+
 export function validateMatchForm(values: MatchFormValues): string | null {
   if (!values.date.trim()) return 'La fecha es obligatoria.';
   if (!toIsoDate(values.date)) return 'La fecha no es válida.';

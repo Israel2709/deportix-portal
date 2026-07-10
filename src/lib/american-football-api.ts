@@ -104,6 +104,13 @@ export async function createAmericanFootballSeason(
   return americanFootballRequest('POST', `/american-football/seasons${buildQuery({ league })}`, body);
 }
 
+export async function updateAmericanFootballSeason(
+  league: string | number,
+  body: AmericanFootballSeasonBody & { current: boolean; start?: string | null; end?: string | null },
+): Promise<AmericanFootballEnvelope<number>> {
+  return americanFootballRequest('PATCH', `/american-football/seasons${buildQuery({ league })}`, body);
+}
+
 export async function deleteAmericanFootballSeason(
   league: string | number,
   body: AmericanFootballSeasonBody,

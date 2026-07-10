@@ -1,4 +1,4 @@
-import type { Match } from './types';
+import type { Match, Team } from './types';
 import { applyMatchPatch, type MatchEditPatch } from './match-edits';
 
 const STORAGE_PREFIX = 'deportix.localMatches.v1';
@@ -36,12 +36,13 @@ export function updateLocalMatch(
   seasonId: string,
   matchId: string,
   patch: MatchEditPatch,
+  teams: Team[] = [],
 ): void {
   const matches = readLocalMatches(leagueId, seasonId);
   writeLocalMatches(
     leagueId,
     seasonId,
-    matches.map((match) => (match.id === matchId ? applyMatchPatch(match, patch) : match)),
+    matches.map((match) => (match.id === matchId ? applyMatchPatch(match, patch, teams) : match)),
   );
 }
 
