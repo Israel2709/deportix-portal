@@ -3,14 +3,16 @@ import { americanFootballLeaguePath, americanFootballTabPath, parseAmericanFootb
 
 describe('american-football-paths', () => {
   it('parses tab query values', () => {
-    expect(parseAmericanFootballTab(null)).toBe('coverage');
+    expect(parseAmericanFootballTab(null)).toBe('contenido');
     expect(parseAmericanFootballTab('loader')).toBe('loader');
     expect(parseAmericanFootballTab('browse')).toBe('browse');
-    expect(parseAmericanFootballTab('unknown')).toBe('coverage');
+    expect(parseAmericanFootballTab('coverage')).toBe('coverage');
+    expect(parseAmericanFootballTab('unknown')).toBe('contenido');
   });
 
   it('builds tab paths', () => {
-    expect(americanFootballTabPath('coverage')).toBe('/american-football');
+    expect(americanFootballTabPath('contenido')).toBe('/american-football');
+    expect(americanFootballTabPath('coverage')).toBe('/american-football?tab=coverage');
     expect(americanFootballTabPath('loader')).toBe('/american-football?tab=loader');
     expect(americanFootballTabPath('browse')).toBe('/american-football?tab=browse');
   });

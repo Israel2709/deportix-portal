@@ -11,6 +11,7 @@ import { formatDateTime } from '@/lib/format';
 import { americanFootballLeaguePath, americanFootballTabPath, type AmericanFootballTab } from '@/lib/american-football-paths';
 import { AMERICAN_FOOTBALL_SPORT_LABEL } from '@/lib/sports';
 import { AmericanFootballDataLoader } from './american-football/AmericanFootballDataLoader';
+import { AmericanFootballContenidoTab } from './american-football/AmericanFootballContenidoTab';
 import { AmericanFootballLeaguesBrowse } from './american-football/AmericanFootballLeaguesBrowse';
 import { AmericanFootballLoaderLink } from './american-football/AmericanFootballLoaderLink';
 
@@ -23,9 +24,10 @@ function tabButtonClass(active: boolean, accent?: 'blue'): string {
   return 'text-slate-400 hover:text-slate-200';
 }
 
-export function AmericanFootballView({ initialTab = 'coverage' }: { initialTab?: AmericanFootballTab }) {
+export function AmericanFootballView({ initialTab = 'contenido' }: { initialTab?: AmericanFootballTab }) {
   const router = useRouter();
   const [tab, setTab] = useState<AmericanFootballTab>(initialTab);
+  const [contenidoKey, setContenidoKey] = useState(0);
   const status = useApi<ApiResource<DataStatus>>('/v1/data-status');
   const leagues = useApi<ApiCollection<League>>('/v1/leagues?sport=american-football');
   const americanFootball = status.data?.data.sports.find((s) => s.slug === 'american-football');
@@ -51,6 +53,7 @@ export function AmericanFootballView({ initialTab = 'coverage' }: { initialTab?:
   useEffect(() => {
     if (prevTab.current === 'loader' && tab !== 'loader') {
       refreshCoverage();
+      setContenidoKey((key) => key + 1);
     }
     prevTab.current = tab;
   }, [tab, refreshCoverage]);
@@ -76,6 +79,13 @@ export function AmericanFootballView({ initialTab = 'coverage' }: { initialTab?:
       <div className="flex gap-2 overflow-x-auto border-b border-slate-800 pb-1">
         <button
           type="button"
+          onClick={() => selectTab('contenido')}
+          className={`shrink-0 rounded-t-md px-4 py-2 text-sm font-medium transition ${tabButtonClass(tab === 'contenido')}`}
+        >
+          Contenido
+        </button>
+        <button
+          type="button"
           onClick={() => selectTab('coverage')}
           className={`shrink-0 rounded-t-md px-4 py-2 text-sm font-medium transition ${tabButtonClass(tab === 'coverage')}`}
         >
@@ -97,7 +107,9 @@ export function AmericanFootballView({ initialTab = 'coverage' }: { initialTab?:
         </button>
       </div>
 
-      {tab === 'coverage' ? (
+      {tab === 'contenido' ? (
+        <AmericanFootballContenidoTab refreshKey={contenidoKey} />
+      ) : tab === 'coverage' ? (
         <>
           <section>
             <SectionTitle>Cobertura</SectionTitle>
