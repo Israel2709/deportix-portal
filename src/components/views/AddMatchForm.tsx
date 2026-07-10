@@ -154,7 +154,7 @@ export function AddMatchView({
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClassName} htmlFor="match-date">
-                Fecha y hora *
+                Fecha y hora (UTC) *
               </label>
               <input
                 id="match-date"

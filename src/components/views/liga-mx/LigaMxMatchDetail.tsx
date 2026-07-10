@@ -209,7 +209,7 @@ export function LigaMxMatchDetail({
           <dl className="grid gap-4 sm:grid-cols-2">
             <DetailField label="ID" value={<span className="font-mono text-xs">{match.id}</span>} />
             <DetailEditableField
-              label="Fecha y hora"
+              label="Fecha y hora (UTC)"
               value={formatDateTimeShort(match.date)}
               editing={edit.editing}
               editValue={draft.date}

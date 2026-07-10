@@ -9,6 +9,7 @@ import {
   readMatchOverrides,
   saveMatchOverride,
 } from '@/lib/match-edits';
+import { datetimeLocalToIso, isoToDatetimeLocal } from '@/lib/match-form';
 import { readLocalMatches, updateLocalMatch } from '@/lib/local-matches';
 import type { Match, Team } from '@/lib/types';
 
@@ -36,6 +37,14 @@ const baseMatch: Match = {
 describe('match edits', () => {
   beforeEach(() => {
     localStorage.clear();
+  });
+
+  it('converts match datetimes using UTC wall time', () => {
+    expect(isoToDatetimeLocal('2026-07-01T15:00:00.000Z')).toBe('2026-07-01T15:00');
+    expect(datetimeLocalToIso('2026-07-01T15:00')).toBe('2026-07-01T15:00:00.000Z');
+    expect(matchToDraft({ ...baseMatch, date: '2026-07-01T15:00:00.000Z' }).date).toBe(
+      '2026-07-01T15:00',
+    );
   });
 
   it('applies full patches to a match', () => {
@@ -96,7 +105,7 @@ describe('match edits', () => {
 
     const edited = {
       ...draft,
-      date: '2026-07-02T13:30',
+      date: '2026-07-02T15:00',
       round: 'Clausura - 3',
       venue: 'BBVA',
       seasonId: 'se25',
@@ -108,7 +117,7 @@ describe('match edits', () => {
     };
     expect(isDraftDirty(baseMatch, edited)).toBe(true);
     expect(draftToPatch(edited)).toEqual({
-      date: '2026-07-02T19:30:00.000Z',
+      date: '2026-07-02T15:00:00.000Z',
       round: 'Clausura - 3',
       venue: 'BBVA',
       seasonId: 'se25',

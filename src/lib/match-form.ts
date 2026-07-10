@@ -74,25 +74,44 @@ function parseOptionalScore(value: string): number | null {
 }
 
 function toIsoDate(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const date = new Date(trimmed);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString();
+  return datetimeLocalUtcToIso(value);
 }
 
-/** Converts an ISO timestamp to the value expected by `<input type="datetime-local" />`. */
+/**
+ * Converts an ISO UTC timestamp to a `datetime-local` value using UTC wall time
+ * (not the browser's local timezone).
+ */
 export function isoToDatetimeLocal(iso: string | null | undefined): string {
   if (!iso) return '';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 16);
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const hours = String(date.getUTCHours()).padStart(2, '0');
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
+/** Parses a `datetime-local` value as UTC wall time and returns an ISO string. */
 export function datetimeLocalToIso(value: string): string | null {
-  return toIsoDate(value);
+  return datetimeLocalUtcToIso(value);
+}
+
+export function datetimeLocalUtcToIso(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(trimmed);
+  if (!match) return null;
+
+  const [, year, month, day, hours, minutes] = match;
+  const date = new Date(
+    Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hours), Number(minutes)),
+  );
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
 }
 
 export function validateMatchForm(values: MatchFormValues): string | null {
