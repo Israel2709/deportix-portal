@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import type { Match } from '@/lib/types';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { Match, Team } from '@/lib/types';
 import {
   draftToPatch,
   isDraftDirty,
@@ -11,43 +11,130 @@ import {
   type MatchRowDraft,
 } from '@/lib/match-edits';
 import { formatMatchStatusOption, MATCH_STATUS_OPTIONS } from '@/lib/match-form';
-import { formatDateTime, formatDateTimeShort } from '@/lib/format';
+import { formatDateTimeShort } from '@/lib/format';
 import { isLocalMatch } from '@/lib/local-matches';
 
 const inputClassName =
-  'w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-sm text-slate-100';
+  'w-full rounded border border-blue-500/50 bg-slate-950 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500';
 const selectClassName =
-  'w-full rounded border border-slate-700 bg-slate-950 pl-2 py-1 text-sm text-slate-100';
+  'w-full rounded border border-blue-500/50 bg-slate-950 pl-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500';
 const scoreInputClassName =
-  'w-10 min-w-10 rounded border border-slate-700 bg-slate-950 px-1 py-1 text-center text-sm tabular-nums text-slate-100';
+  'w-10 min-w-10 rounded border border-blue-500/50 bg-slate-950 px-1 py-1 text-center text-sm tabular-nums text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500';
+
+type EditableField =
+  | 'date'
+  | 'status'
+  | 'homeTeamId'
+  | 'scores'
+  | 'awayTeamId'
+  | 'round'
+  | 'venue';
+
+interface ActiveCell {
+  matchId: string;
+  field: EditableField;
+}
+
+function teamName(teams: Team[], teamId: string | null | undefined, fallback?: string | null): string {
+  if (!teamId) return fallback ?? '—';
+  return teams.find((team) => team.id === teamId)?.name ?? fallback ?? teamId;
+}
+
+function matchesSearchQuery(
+  query: string,
+  match: Match,
+  draft: MatchRowDraft,
+  teams: Team[],
+): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+
+  const parts = [
+    match.id,
+    match.round,
+    match.venue,
+    match.status,
+    formatDateTimeShort(match.date),
+    draft.date,
+    draft.round,
+    draft.venue,
+    draft.status,
+    draft.homeScore,
+    draft.awayScore,
+    teamName(teams, draft.homeTeamId, match.home.name),
+    teamName(teams, draft.awayTeamId, match.away.name),
+    match.home.name,
+    match.away.name,
+    isLocalMatch(match) ? 'local' : null,
+  ];
+
+  return parts
+    .filter((part) => part != null && String(part).trim() !== '')
+    .some((part) => String(part).toLowerCase().includes(needle));
+}
+
+function scoreDisplay(home: string, away: string, persistedHome: number | null, persistedAway: number | null): string {
+  const homeLabel = home.trim() || (persistedHome != null ? String(persistedHome) : '–');
+  const awayLabel = away.trim() || (persistedAway != null ? String(persistedAway) : '–');
+  return `${homeLabel} : ${awayLabel}`;
+}
 
 export function EditableMatchesTable({
   matches,
+  teams = [],
   resetKey,
   onSave,
   onDelete,
 }: {
   matches: Match[];
+  teams?: Team[];
   resetKey: string;
   onSave: (edits: Record<string, MatchEditPatch>) => string | null | Promise<string | null>;
   onDelete: (matchId: string) => string | null | Promise<string | null>;
 }) {
+  const tableRef = useRef<HTMLDivElement>(null);
   const [drafts, setDrafts] = useState<Record<string, MatchRowDraft>>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCell, setActiveCell] = useState<ActiveCell | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     setDrafts({});
+    setSearchQuery('');
+    setActiveCell(null);
     setError(null);
   }, [resetKey]);
 
+  useEffect(() => {
+    if (!activeCell) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (tableRef.current?.contains(event.target as Node)) return;
+      setActiveCell(null);
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [activeCell]);
+
   const dirtyMatchIds = useMemo(
-    () => matches.filter((match) => drafts[match.id] && isDraftDirty(match, drafts[match.id]!)).map((m) => m.id),
+    () =>
+      matches
+        .filter((match) => drafts[match.id] && isDraftDirty(match, drafts[match.id]!))
+        .map((match) => match.id),
     [matches, drafts],
   );
 
+  const filteredMatches = useMemo(
+    () =>
+      matches.filter((match) => matchesSearchQuery(searchQuery, match, getDraft(match), teams)),
+    [matches, searchQuery, drafts, teams],
+  );
+
   const hasDirtyDrafts = dirtyMatchIds.length > 0;
+  const isBusy = saving || deletingId !== null;
 
   function getDraft(match: Match): MatchRowDraft {
     return drafts[match.id] ?? matchToDraft(match);
@@ -61,8 +148,14 @@ export function EditableMatchesTable({
     }));
   }
 
+  function activateCell(matchId: string, field: EditableField) {
+    if (isBusy) return;
+    setActiveCell({ matchId, field });
+  }
+
   function handleDiscard() {
     setDrafts({});
+    setActiveCell(null);
     setError(null);
   }
 
@@ -88,6 +181,7 @@ export function EditableMatchesTable({
       }
 
       setDrafts({});
+      setActiveCell(null);
       setError(null);
     } finally {
       setSaving(false);
@@ -114,17 +208,36 @@ export function EditableMatchesTable({
         delete next[match.id];
         return next;
       });
+      if (activeCell?.matchId === match.id) setActiveCell(null);
     } finally {
       setDeletingId(null);
     }
   }
 
-  const isBusy = saving || deletingId !== null;
+  const teamOptions = teams.map((team) => ({
+    value: team.id,
+    label: team.name ?? team.id,
+  }));
 
   if (matches.length === 0) return null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={tableRef}>
+      <div>
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="Buscar por equipos, jornada, sede, estado, fecha o id…"
+          className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+        />
+        {searchQuery.trim() && (
+          <p className="mt-2 text-xs text-slate-500">
+            {filteredMatches.length} de {matches.length} partido(s)
+          </p>
+        )}
+      </div>
+
       {hasDirtyDrafts && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
           <p className="text-sm text-amber-100">
@@ -134,7 +247,7 @@ export function EditableMatchesTable({
           </p>
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={saving}
             className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
           >
@@ -159,7 +272,7 @@ export function EditableMatchesTable({
           <thead>
             <tr className="bg-slate-900/70 text-left text-slate-300">
               <th scope="col" className="px-3 py-2 font-medium">
-                Fecha
+                Fecha (UTC)
               </th>
               <th scope="col" className="px-3 py-2 font-medium">
                 Estado
@@ -176,6 +289,9 @@ export function EditableMatchesTable({
               <th scope="col" className="px-3 py-2 font-medium">
                 Jornada
               </th>
+              <th scope="col" className="px-3 py-2 font-medium">
+                Sede
+              </th>
               <th scope="col" className="w-0 whitespace-nowrap px-3 py-2 font-medium">
                 Modificado
               </th>
@@ -185,100 +301,242 @@ export function EditableMatchesTable({
             </tr>
           </thead>
           <tbody>
-            {matches.map((match) => {
-              const draft = getDraft(match);
-              const dirty = drafts[match.id] && isDraftDirty(match, draft);
+            {filteredMatches.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="px-3 py-6 text-center text-sm text-slate-500">
+                  Ningún partido coincide con la búsqueda.
+                </td>
+              </tr>
+            ) : (
+              filteredMatches.map((match) => {
+                const draft = getDraft(match);
+                const dirty = drafts[match.id] && isDraftDirty(match, draft);
+                const labelBase = `${match.home.name ?? 'local'} vs ${match.away.name ?? 'visitante'}`;
 
-              return (
-                <tr
-                  key={match.id}
-                  className={`border-t border-slate-800/80 text-slate-200 ${dirty ? 'bg-amber-500/5' : ''}`}
-                >
-                  <td className="px-3 py-2">
-                    <span>
-                      {formatDateTime(match.date)}
-                      {isLocalMatch(match) && (
-                        <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-200">
-                          local
+                return (
+                  <tr
+                    key={match.id}
+                    className={`border-t border-slate-800/80 text-slate-200 ${dirty ? 'bg-amber-500/5' : ''}`}
+                  >
+                    <EditableCell
+                      isActive={activeCell?.matchId === match.id && activeCell.field === 'date'}
+                      onActivate={() => activateCell(match.id, 'date')}
+                      display={
+                        <span>
+                          {formatDateTimeShort(match.date)}
+                          {isLocalMatch(match) && (
+                            <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-200">
+                              local
+                            </span>
+                          )}
                         </span>
-                      )}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <select
-                      aria-label={`Estado de ${match.home.name ?? 'local'} vs ${match.away.name ?? 'visitante'}`}
-                      value={draft.status}
-                      onChange={(event) => updateDraft(match.id, match, { status: event.target.value })}
-                      className={selectClassName}
-                      disabled={isBusy}
+                      }
                     >
-                      {MATCH_STATUS_OPTIONS.map((status) => (
-                        <option key={status} value={status}>
-                          {formatMatchStatusOption(status)}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-3 py-2 text-right">{match.home.name ?? match.home.teamId ?? '—'}</td>
-                  <td className="whitespace-nowrap px-2 py-2">
-                    <div className="flex items-center justify-center gap-1">
+                      <input
+                        type="datetime-local"
+                        aria-label={`Fecha UTC de ${labelBase}`}
+                        value={draft.date}
+                        onChange={(event) => updateDraft(match.id, match, { date: event.target.value })}
+                        className={inputClassName}
+                        disabled={isBusy}
+                        autoFocus
+                      />
+                    </EditableCell>
+
+                    <EditableCell
+                      isActive={activeCell?.matchId === match.id && activeCell.field === 'status'}
+                      onActivate={() => activateCell(match.id, 'status')}
+                      display={match.status ?? '—'}
+                    >
+                      <select
+                        aria-label={`Estado de ${labelBase}`}
+                        value={draft.status}
+                        onChange={(event) => updateDraft(match.id, match, { status: event.target.value })}
+                        className={selectClassName}
+                        disabled={isBusy}
+                        autoFocus
+                      >
+                        {MATCH_STATUS_OPTIONS.map((status) => (
+                          <option key={status} value={status}>
+                            {formatMatchStatusOption(status)}
+                          </option>
+                        ))}
+                      </select>
+                    </EditableCell>
+
+                    <EditableCell
+                      isActive={activeCell?.matchId === match.id && activeCell.field === 'homeTeamId'}
+                      onActivate={() => activateCell(match.id, 'homeTeamId')}
+                      className="text-right"
+                      display={teamName(teams, draft.homeTeamId, match.home.name)}
+                    >
+                      <select
+                        aria-label={`Local de ${labelBase}`}
+                        value={draft.homeTeamId}
+                        onChange={(event) => updateDraft(match.id, match, { homeTeamId: event.target.value })}
+                        className={selectClassName}
+                        disabled={isBusy || teamOptions.length === 0}
+                        autoFocus
+                      >
+                        <option value="">Seleccionar…</option>
+                        {teamOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </EditableCell>
+
+                    <EditableCell
+                      isActive={activeCell?.matchId === match.id && activeCell.field === 'scores'}
+                      onActivate={() => activateCell(match.id, 'scores')}
+                      className="whitespace-nowrap px-2 py-2 text-center"
+                      display={scoreDisplay(draft.homeScore, draft.awayScore, match.home.score, match.away.score)}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          autoComplete="off"
+                          aria-label={`Goles de ${match.home.name ?? 'local'}`}
+                          value={draft.homeScore}
+                          onChange={(event) =>
+                            updateDraft(match.id, match, {
+                              homeScore: sanitizeScoreInput(event.target.value),
+                            })
+                          }
+                          className={scoreInputClassName}
+                          placeholder="–"
+                          disabled={isBusy}
+                          autoFocus
+                        />
+                        <span className="text-slate-500">:</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          autoComplete="off"
+                          aria-label={`Goles de ${match.away.name ?? 'visitante'}`}
+                          value={draft.awayScore}
+                          onChange={(event) =>
+                            updateDraft(match.id, match, {
+                              awayScore: sanitizeScoreInput(event.target.value),
+                            })
+                          }
+                          className={scoreInputClassName}
+                          placeholder="–"
+                          disabled={isBusy}
+                        />
+                      </div>
+                    </EditableCell>
+
+                    <EditableCell
+                      isActive={activeCell?.matchId === match.id && activeCell.field === 'awayTeamId'}
+                      onActivate={() => activateCell(match.id, 'awayTeamId')}
+                      display={teamName(teams, draft.awayTeamId, match.away.name)}
+                    >
+                      <select
+                        aria-label={`Visitante de ${labelBase}`}
+                        value={draft.awayTeamId}
+                        onChange={(event) => updateDraft(match.id, match, { awayTeamId: event.target.value })}
+                        className={selectClassName}
+                        disabled={isBusy || teamOptions.length === 0}
+                        autoFocus
+                      >
+                        <option value="">Seleccionar…</option>
+                        {teamOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </EditableCell>
+
+                    <EditableCell
+                      isActive={activeCell?.matchId === match.id && activeCell.field === 'round'}
+                      onActivate={() => activateCell(match.id, 'round')}
+                      display={match.round ?? '—'}
+                    >
                       <input
                         type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        autoComplete="off"
-                        aria-label={`Goles de ${match.home.name ?? 'local'}`}
-                        value={draft.homeScore}
-                        onChange={(event) =>
-                          updateDraft(match.id, match, {
-                            homeScore: sanitizeScoreInput(event.target.value),
-                          })
-                        }
-                        className={scoreInputClassName}
-                        placeholder="–"
+                        aria-label={`Jornada de ${labelBase}`}
+                        value={draft.round}
+                        onChange={(event) => updateDraft(match.id, match, { round: event.target.value })}
+                        className={inputClassName}
                         disabled={isBusy}
+                        autoFocus
                       />
-                      <span className="text-slate-500">:</span>
+                    </EditableCell>
+
+                    <EditableCell
+                      isActive={activeCell?.matchId === match.id && activeCell.field === 'venue'}
+                      onActivate={() => activateCell(match.id, 'venue')}
+                      display={match.venue ?? '—'}
+                    >
                       <input
                         type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        autoComplete="off"
-                        aria-label={`Goles de ${match.away.name ?? 'visitante'}`}
-                        value={draft.awayScore}
-                        onChange={(event) =>
-                          updateDraft(match.id, match, {
-                            awayScore: sanitizeScoreInput(event.target.value),
-                          })
-                        }
-                        className={scoreInputClassName}
-                        placeholder="–"
+                        aria-label={`Sede de ${labelBase}`}
+                        value={draft.venue}
+                        onChange={(event) => updateDraft(match.id, match, { venue: event.target.value })}
+                        className={inputClassName}
                         disabled={isBusy}
+                        autoFocus
                       />
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">{match.away.name ?? match.away.teamId ?? '—'}</td>
-                  <td className="px-3 py-2">{match.round ?? '—'}</td>
-                  <td className="w-0 whitespace-nowrap px-3 py-2 text-slate-400">
-                    {formatDateTimeShort(match.updatedAt)}
-                  </td>
-                  <td className="w-0 whitespace-nowrap px-3 py-2 text-center">
-                    <button
-                      type="button"
-                      aria-label={`Eliminar partido ${match.home.name ?? 'local'} vs ${match.away.name ?? 'visitante'}`}
-                      onClick={() => void handleDelete(match)}
-                      disabled={isBusy}
-                      className="rounded border border-red-500/40 px-2 py-1 text-xs font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-60"
-                    >
-                      {deletingId === match.id ? '…' : 'Eliminar'}
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
+                    </EditableCell>
+
+                    <td className="w-0 whitespace-nowrap px-3 py-2 text-slate-400">
+                      {formatDateTimeShort(match.updatedAt)}
+                    </td>
+
+                    <td className="w-0 whitespace-nowrap px-3 py-2 text-center">
+                      <button
+                        type="button"
+                        aria-label={`Eliminar partido ${labelBase}`}
+                        onClick={() => void handleDelete(match)}
+                        disabled={isBusy}
+                        className="rounded border border-red-500/40 px-2 py-1 text-xs font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-60"
+                      >
+                        {deletingId === match.id ? '…' : 'Eliminar'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
+
+      <p className="text-xs text-slate-500">Haz clic en una celda para editarla. Los cambios se guardan con el botón superior.</p>
     </div>
+  );
+}
+
+function EditableCell({
+  isActive,
+  onActivate,
+  display,
+  children,
+  className = '',
+}: {
+  isActive: boolean;
+  onActivate: () => void;
+  display: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  if (isActive) {
+    return <td className={`px-3 py-2 ${className}`}>{children}</td>;
+  }
+
+  return (
+    <td
+      className={`cursor-pointer px-3 py-2 hover:bg-slate-800/60 ${className}`}
+      onClick={onActivate}
+      title="Clic para editar"
+    >
+      {display}
+    </td>
   );
 }

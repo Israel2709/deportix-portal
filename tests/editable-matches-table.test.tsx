@@ -18,8 +18,40 @@ const match: Match = {
   updatedAt: null,
 };
 
+function clickCell(text: string | RegExp) {
+  fireEvent.click(screen.getByText(text));
+}
+
 describe('EditableMatchesTable', () => {
-  it('shows typed score values in the inputs', () => {
+  it('filters matches with the search field', () => {
+    const otherMatch: Match = {
+      ...match,
+      id: 'api_2',
+      home: { teamId: 't3', name: 'Cruz Azul', logo: null, score: null },
+      away: { teamId: 't4', name: 'Pumas', logo: null, score: null },
+    };
+
+    render(
+      <EditableMatchesTable
+        matches={[match, otherMatch]}
+        resetKey="lg_mx:se25"
+        onSave={vi.fn(() => null)}
+        onDelete={vi.fn(() => null)}
+      />,
+    );
+
+    expect(screen.getByText('América')).toBeInTheDocument();
+    expect(screen.getByText('Cruz Azul')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText(/Buscar por equipos/i), {
+      target: { value: 'cruz azul' },
+    });
+
+    expect(screen.queryByText('América')).not.toBeInTheDocument();
+    expect(screen.getByText('Cruz Azul')).toBeInTheDocument();
+  });
+
+  it('shows typed score values after clicking the score cell', () => {
     render(
       <EditableMatchesTable
         matches={[match]}
@@ -28,6 +60,8 @@ describe('EditableMatchesTable', () => {
         onDelete={vi.fn(() => null)}
       />,
     );
+
+    clickCell('– : –');
 
     const homeInput = screen.getByLabelText(/Goles de América/i) as HTMLInputElement;
     fireEvent.change(homeInput, { target: { value: '3' } });
@@ -47,9 +81,12 @@ describe('EditableMatchesTable', () => {
       />,
     );
 
+    clickCell('NS');
     fireEvent.change(screen.getByLabelText(/Estado de América vs Chivas/i), {
       target: { value: 'FT' },
     });
+
+    clickCell('– : –');
     fireEvent.change(screen.getByLabelText(/Goles de América/i), {
       target: { value: '2' },
     });
@@ -63,7 +100,13 @@ describe('EditableMatchesTable', () => {
 
     expect(onSave).toHaveBeenCalledWith({
       api_1: {
+        date: '2026-07-01T20:00:00.000Z',
+        round: '1',
+        venue: 'Azteca',
+        seasonId: 'se25',
         status: 'FT',
+        homeTeamId: 't1',
+        awayTeamId: 't2',
         homeScore: 2,
         awayScore: 1,
       },

@@ -129,7 +129,7 @@ export function LeagueDetail({
         if (!match) continue;
 
         if (isLocalMatch(match)) {
-          updateLocalMatch(league.id, selectedSeason.id, matchId, patch);
+          updateLocalMatch(league.id, selectedSeason.id, matchId, patch, teamsWithOverrides);
         } else {
           updatedMatches.push(await patchMatch(leagueId, matchId, patch));
         }
@@ -253,6 +253,7 @@ export function LeagueDetail({
             >
               <EditableMatchesTable
                 matches={sortedMatches}
+                teams={teamsWithOverrides}
                 resetKey={`${league?.id ?? leagueId}:${selectedSeason?.id ?? 'none'}`}
                 onSave={handleSaveMatchEdits}
                 onDelete={handleDeleteMatch}
