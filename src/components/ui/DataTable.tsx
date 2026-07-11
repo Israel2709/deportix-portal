@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { nextSortDirection, sortRows, type SortDirection, type SortableValue } from '@/lib/table-sort';
 import { SortableColumnHeader } from '@/components/ui/SortableColumnHeader';
+import { TableRecordCount } from '@/components/ui/TableRecordCount';
 
 export interface Column<T> {
   key: string;
@@ -18,11 +19,13 @@ export function DataTable<T>({
   rows,
   rowKey,
   caption,
+  countLabels = { singular: 'registro', plural: 'registros' },
 }: {
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T, index: number) => string;
   caption?: string;
+  countLabels?: { singular: string; plural: string };
 }) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection | null>(null);
@@ -75,6 +78,14 @@ export function DataTable<T>({
           ))}
         </tbody>
       </table>
+      <div className="border-t border-slate-800/80 px-3 py-2">
+        <TableRecordCount
+          shown={sortedRows.length}
+          total={rows.length}
+          singular={countLabels.singular}
+          plural={countLabels.plural}
+        />
+      </div>
     </div>
   );
 }

@@ -163,7 +163,6 @@ export function LeagueDetail({
 
       reloadLocalMatches();
       matchesRes.applyUpdates(updatedMatches);
-      matchesRes.reload();
       return null;
     } catch (err) {
       if (err instanceof ApiClientError) return err.message;
@@ -213,6 +212,7 @@ export function LeagueDetail({
           rows={standingsRes.data?.data ?? []}
           rowKey={(r, i) => r.teamId ?? String(i)}
           caption="Clasificación de la liga"
+          countLabels={{ singular: 'equipo', plural: 'equipos' }}
         />
       </DataSection>
     </section>
@@ -270,7 +270,7 @@ export function LeagueDetail({
               )}
             </div>
             <DataSection
-              loading={matchesRes.loading}
+              loading={matchesRes.loading && sortedMatches.length === 0}
               error={matchesRes.error}
               isEmpty={sortedMatches.length === 0}
               onRetry={matchesRes.reload}

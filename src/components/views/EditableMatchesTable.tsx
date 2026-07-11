@@ -15,6 +15,7 @@ import { formatDateTimeShort } from '@/lib/format';
 import { isLocalMatch } from '@/lib/local-matches';
 import { nextSortDirection, sortRows, type SortDirection } from '@/lib/table-sort';
 import { SortableColumnHeader } from '@/components/ui/SortableColumnHeader';
+import { TableRecordCount } from '@/components/ui/TableRecordCount';
 
 const inputClassName =
   'w-full rounded border border-blue-500/50 bg-slate-950 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500';
@@ -291,19 +292,21 @@ export function EditableMatchesTable({
 
   return (
     <div className="space-y-3" ref={tableRef}>
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <input
           type="search"
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Buscar por equipos, jornada, sede, estado, fecha o id…"
-          className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
+          className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
         />
-        {searchQuery.trim() && (
-          <p className="mt-2 text-xs text-slate-500">
-            {filteredMatches.length} de {matches.length} partido(s)
-          </p>
-        )}
+        <TableRecordCount
+          shown={displayedMatches.length}
+          total={matches.length}
+          singular="partido"
+          plural="partidos"
+          className="shrink-0"
+        />
       </div>
 
       {hasDirtyDrafts && (

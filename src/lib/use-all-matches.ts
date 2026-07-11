@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiGet } from './api';
 import { sortMatchesByDateAsc } from './match-sort';
 import type { ApiCollection, Match } from './types';
@@ -17,6 +17,15 @@ export function leagueMatchesPagePath(
   return `/v1/leagues/${id}/matches?season=${seasonYear}&page=${page}&pageSize=${pageSize}`;
 }
 
+function matchesContextKey(
+  leagueId: string | null,
+  seasonYear: number | null,
+  enabled: boolean,
+): string | null {
+  if (!enabled || leagueId === null || seasonYear === null) return null;
+  return `${leagueId}:${seasonYear}`;
+}
+
 /** Fetches every page of a league's matches for a given season. */
 export function useAllMatches(
   leagueId: string | null,
@@ -27,13 +36,15 @@ export function useAllMatches(
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(enabled && leagueId !== null && seasonYear !== null);
   const [nonce, setNonce] = useState(0);
+  const dataRef = useRef(data);
+  const contextKeyRef = useRef<string | null>(null);
+
+  dataRef.current = data;
 
   const reload = useCallback(() => {
-    setData([]);
     setError(null);
-    setLoading(enabled && leagueId !== null && seasonYear !== null);
     setNonce((value) => value + 1);
-  }, [enabled, leagueId, seasonYear]);
+  }, []);
 
   const applyUpdates = useCallback((updates: Match[]) => {
     if (updates.length === 0) return;
@@ -58,17 +69,28 @@ export function useAllMatches(
   }, []);
 
   useEffect(() => {
-    if (leagueId === null || seasonYear === null || !enabled) {
+    const contextKey = matchesContextKey(leagueId, seasonYear, enabled);
+
+    if (contextKey === null) {
+      contextKeyRef.current = null;
       setData([]);
       setError(null);
       setLoading(false);
       return;
     }
 
+    const contextChanged = contextKeyRef.current !== contextKey;
+    contextKeyRef.current = contextKey;
+
     let active = true;
-    setData([]);
-    setError(null);
-    setLoading(true);
+
+    if (contextChanged) {
+      setData([]);
+      setError(null);
+      setLoading(true);
+    } else if (dataRef.current.length === 0) {
+      setLoading(true);
+    }
 
     async function load() {
       try {

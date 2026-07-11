@@ -16,7 +16,11 @@ export function SortableColumnHeader({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClick();
+      }}
       aria-sort={direction === 'asc' ? 'ascending' : direction === 'desc' ? 'descending' : 'none'}
       className={`inline-flex items-center gap-1 text-left font-medium text-slate-300 hover:text-slate-100 ${className}`}
     >

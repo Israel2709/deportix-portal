@@ -42,6 +42,7 @@ describe('EditableMatchesTable', () => {
 
     expect(screen.getByText('América')).toBeInTheDocument();
     expect(screen.getByText('Cruz Azul')).toBeInTheDocument();
+    expect(screen.getByText('2 partidos')).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText(/Buscar por equipos/i), {
       target: { value: 'cruz azul' },
@@ -49,6 +50,7 @@ describe('EditableMatchesTable', () => {
 
     expect(screen.queryByText('América')).not.toBeInTheDocument();
     expect(screen.getByText('Cruz Azul')).toBeInTheDocument();
+    expect(screen.getByText('Mostrando 1 partido de 2 partidos')).toBeInTheDocument();
   });
 
   it('sorts matches when a column header is clicked', () => {

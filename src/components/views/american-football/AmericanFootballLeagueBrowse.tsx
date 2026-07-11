@@ -67,18 +67,14 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
   const loaderAction = <AmericanFootballLoaderLink>Cargar información</AmericanFootballLoaderLink>;
 
   useEffect(() => {
-    function refreshOnFocus() {
+    function refreshOnVisible() {
       if (document.visibilityState !== 'visible') return;
       teamsRes.reload();
       matchesRes.reload();
     }
 
-    window.addEventListener('focus', refreshOnFocus);
-    document.addEventListener('visibilitychange', refreshOnFocus);
-    return () => {
-      window.removeEventListener('focus', refreshOnFocus);
-      document.removeEventListener('visibilitychange', refreshOnFocus);
-    };
+    document.addEventListener('visibilitychange', refreshOnVisible);
+    return () => document.removeEventListener('visibilitychange', refreshOnVisible);
   }, [teamsRes.reload, matchesRes.reload]);
 
   async function handleSaveMatchEdits(
@@ -104,7 +100,6 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
 
       reloadLocalMatches();
       matchesRes.applyUpdates(updatedMatches);
-      matchesRes.reload();
       return null;
     } catch (err) {
       if (err instanceof ApiClientError) return err.message;
@@ -189,7 +184,7 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
               <section>
                 <SectionTitle>Partidos · {selectedYear}</SectionTitle>
                 <DataSection
-                  loading={matchesRes.loading}
+                  loading={matchesRes.loading && sortedMatches.length === 0}
                   error={matchesRes.error}
                   isEmpty={sortedMatches.length === 0}
                   onRetry={matchesRes.reload}

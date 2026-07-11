@@ -28,4 +28,35 @@ describe('useAllMatches', () => {
     expect(result.current.data).toHaveLength(153);
     expect(result.current.error).toBeNull();
   });
+
+  it('keeps existing rows visible while reloading in the background', async () => {
+    const initialMatches = [{ id: 'm1' }, { id: 'm2' }];
+
+    installFetch([
+      {
+        match: '/v1/leagues/262/matches?season=2026&page=1',
+        body: collection(initialMatches, 2),
+      },
+    ]);
+
+    const { result } = renderHook(() => useAllMatches('262', 2026));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.data).toHaveLength(2);
+
+    installFetch([
+      {
+        match: '/v1/leagues/262/matches?season=2026&page=1',
+        body: collection([...initialMatches, { id: 'm3' }], 3),
+      },
+    ]);
+
+    result.current.reload();
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.data).toHaveLength(2);
+
+    await waitFor(() => expect(result.current.data).toHaveLength(3));
+    expect(result.current.loading).toBe(false);
+  });
 });

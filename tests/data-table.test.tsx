@@ -31,6 +31,7 @@ describe('DataTable', () => {
     const nameHeader = screen.getByRole('button', { name: /Equipo/i });
     fireEvent.click(nameHeader);
     expect(screen.getAllByRole('row')[1]).toHaveTextContent('América');
+    expect(screen.getByText('3 registros')).toBeInTheDocument();
 
     fireEvent.click(nameHeader);
     expect(screen.getAllByRole('row')[1]).toHaveTextContent('Cruz Azul');
