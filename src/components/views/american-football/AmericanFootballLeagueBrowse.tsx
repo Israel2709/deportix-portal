@@ -8,51 +8,19 @@ import type { ApiCollection, ApiResource, League, Match, Season, Team } from '@/
 import { americanFootballTabPath } from '@/lib/american-football-paths';
 import { pickDefaultSeason } from '@/lib/seasons';
 import { sortMatchesByDateAsc } from '@/lib/match-sort';
-import { formatDateTimeShort } from '@/lib/format';
-import { DataTable, SectionTitle, type Column } from '@/components/ui/Ui';
+import { SectionTitle } from '@/components/ui/Ui';
 import { DataSection, EmptyState, ErrorState, LoadingState } from '@/components/states/States';
 import { LeagueSeasonSidebar } from '@/components/layout/LeagueSeasonSidebar';
 import { TeamMiniCard } from '@/components/teams/TeamMiniCard';
+import { EditableMatchesTable } from '@/components/views/EditableMatchesTable';
+import { type MatchEditPatch } from '@/lib/match-edits';
+import { deleteMatchApi, patchMatch } from '@/lib/match-api';
+import { ApiClientError } from '@/lib/api';
+import { isLocalMatch, removeLocalMatch, updateLocalMatch } from '@/lib/local-matches';
+import { useLocalMatches } from '@/lib/use-local-matches';
+import { applyTeamOverrides } from '@/lib/team-edits';
+import { useTeamOverrides } from '@/lib/use-team-overrides';
 import { AmericanFootballLoaderLink } from './AmericanFootballLoaderLink';
-
-const matchColumns: Column<Match>[] = [
-  {
-    key: 'date',
-    header: 'Fecha',
-    render: (row) => formatDateTimeShort(row.date),
-  },
-  {
-    key: 'round',
-    header: 'Semana',
-    render: (row) => row.round ?? '—',
-  },
-  {
-    key: 'home',
-    header: 'Local',
-    render: (row) => row.home.name ?? '—',
-  },
-  {
-    key: 'score',
-    header: 'Marcador',
-    render: (row) => {
-      const home = row.home.score;
-      const away = row.away.score;
-      if (home == null && away == null) return '—';
-      return `${home ?? '—'} – ${away ?? '—'}`;
-    },
-    className: 'text-center tabular-nums',
-  },
-  {
-    key: 'away',
-    header: 'Visitante',
-    render: (row) => row.away.name ?? '—',
-  },
-  {
-    key: 'status',
-    header: 'Estado',
-    render: (row) => row.status ?? '—',
-  },
-];
 
 export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string }) {
   const id = encodeURIComponent(leagueId);
@@ -79,10 +47,23 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
       : null;
   const teamsRes = useApi<ApiCollection<Team>>(teamsPath);
   const matchesRes = useAllMatches(leagueId, selectedYear);
-  const sortedMatches = useMemo(() => sortMatchesByDateAsc(matchesRes.data), [matchesRes.data]);
-  const teams = teamsRes.data?.data ?? [];
 
   const league = leagueRes.data?.data;
+  const { matches: localMatches, reload: reloadLocalMatches } = useLocalMatches(
+    league?.id ?? null,
+    selectedSeason?.id ?? null,
+  );
+  const { overrides: teamOverrides } = useTeamOverrides();
+
+  const teamsWithOverrides = useMemo(
+    () => applyTeamOverrides(teamsRes.data?.data ?? [], teamOverrides),
+    [teamsRes.data, teamOverrides],
+  );
+
+  const sortedMatches = useMemo(
+    () => sortMatchesByDateAsc([...matchesRes.data, ...localMatches]),
+    [matchesRes.data, localMatches],
+  );
   const loaderAction = <AmericanFootballLoaderLink>Cargar información</AmericanFootballLoaderLink>;
 
   useEffect(() => {
@@ -99,6 +80,60 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
       document.removeEventListener('visibilitychange', refreshOnFocus);
     };
   }, [teamsRes.reload, matchesRes.reload]);
+
+  async function handleSaveMatchEdits(
+    edits: Record<string, MatchEditPatch>,
+  ): Promise<string | null> {
+    if (!league?.id || !selectedSeason?.id) {
+      return 'No se pudo guardar los cambios.';
+    }
+
+    try {
+      const updatedMatches: Match[] = [];
+
+      for (const [matchId, patch] of Object.entries(edits)) {
+        const match = sortedMatches.find((entry) => entry.id === matchId);
+        if (!match) continue;
+
+        if (isLocalMatch(match)) {
+          updateLocalMatch(league.id, selectedSeason.id, matchId, patch, teamsWithOverrides);
+        } else {
+          updatedMatches.push(await patchMatch(leagueId, matchId, patch));
+        }
+      }
+
+      reloadLocalMatches();
+      matchesRes.applyUpdates(updatedMatches);
+      matchesRes.reload();
+      return null;
+    } catch (err) {
+      if (err instanceof ApiClientError) return err.message;
+      return 'No se pudo guardar los cambios.';
+    }
+  }
+
+  async function handleDeleteMatch(matchId: string): Promise<string | null> {
+    if (!league?.id || !selectedSeason?.id) {
+      return 'No se pudo eliminar el partido.';
+    }
+
+    const match = sortedMatches.find((entry) => entry.id === matchId);
+    if (!match) return 'No se encontró el partido.';
+
+    try {
+      if (isLocalMatch(match)) {
+        removeLocalMatch(league.id, selectedSeason.id, matchId);
+        reloadLocalMatches();
+      } else {
+        await deleteMatchApi(leagueId, matchId);
+        matchesRes.removeMatches([matchId]);
+      }
+      return null;
+    } catch (err) {
+      if (err instanceof ApiClientError) return err.message;
+      return 'No se pudo eliminar el partido.';
+    }
+  }
 
   if (leagueRes.loading) return <LoadingState label="Cargando liga…" />;
   if (leagueRes.error) return <ErrorState message={leagueRes.error} onRetry={leagueRes.reload} />;
@@ -162,11 +197,12 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
                   emptyHint={`No hay partidos para la temporada ${selectedYear}. Puedes registrarlos en la carga de datos.`}
                   emptyAction={loaderAction}
                 >
-                  <DataTable
-                    columns={matchColumns}
-                    rows={sortedMatches}
-                    rowKey={(row) => row.id}
-                    caption={`Partidos ${selectedYear}`}
+                  <EditableMatchesTable
+                    matches={sortedMatches}
+                    teams={teamsWithOverrides}
+                    resetKey={`${league?.id ?? leagueId}:${selectedSeason?.id ?? 'none'}`}
+                    onSave={handleSaveMatchEdits}
+                    onDelete={handleDeleteMatch}
                   />
                 </DataSection>
               </section>
@@ -176,15 +212,20 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
                 <DataSection
                   loading={teamsRes.loading}
                   error={teamsRes.error}
-                  isEmpty={teams.length === 0}
+                  isEmpty={teamsWithOverrides.length === 0}
                   onRetry={teamsRes.reload}
                   emptyTitle="Aún no hay equipos cargados"
                   emptyHint={`No hay equipos para la temporada ${selectedYear}. Puedes registrarlos en la carga de datos.`}
                   emptyAction={loaderAction}
                 >
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {teams.map((team) => (
-                      <TeamMiniCard key={team.id} team={team} leagueId={leagueId} />
+                    {teamsWithOverrides.map((team) => (
+                      <TeamMiniCard
+                        key={team.id}
+                        team={team}
+                        leagueId={leagueId}
+                        hasOverride={team.id in teamOverrides}
+                      />
                     ))}
                   </div>
                 </DataSection>

@@ -13,6 +13,8 @@ import {
 import { formatMatchStatusOption, MATCH_STATUS_OPTIONS } from '@/lib/match-form';
 import { formatDateTimeShort } from '@/lib/format';
 import { isLocalMatch } from '@/lib/local-matches';
+import { nextSortDirection, sortRows, type SortDirection } from '@/lib/table-sort';
+import { SortableColumnHeader } from '@/components/ui/SortableColumnHeader';
 
 const inputClassName =
   'w-full rounded border border-blue-500/50 bg-slate-950 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500';
@@ -29,6 +31,16 @@ type EditableField =
   | 'awayTeamId'
   | 'round'
   | 'venue';
+
+type MatchSortField =
+  | 'date'
+  | 'status'
+  | 'home'
+  | 'score'
+  | 'away'
+  | 'round'
+  | 'venue'
+  | 'updatedAt';
 
 interface ActiveCell {
   matchId: string;
@@ -73,6 +85,42 @@ function matchesSearchQuery(
     .some((part) => String(part).toLowerCase().includes(needle));
 }
 
+function scoreSortValue(draft: MatchRowDraft, match: Match): number | null {
+  const homeRaw = draft.homeScore.trim() || (match.home.score != null ? String(match.home.score) : '');
+  const awayRaw = draft.awayScore.trim() || (match.away.score != null ? String(match.away.score) : '');
+  if (homeRaw === '' && awayRaw === '') return null;
+
+  const home = homeRaw === '' ? 0 : Number(homeRaw);
+  const away = awayRaw === '' ? 0 : Number(awayRaw);
+  return home * 1000 + away;
+}
+
+function matchSortValue(
+  match: Match,
+  draft: MatchRowDraft,
+  field: MatchSortField,
+  teams: Team[],
+) {
+  switch (field) {
+    case 'date':
+      return draft.date || match.date;
+    case 'status':
+      return draft.status || match.status;
+    case 'home':
+      return teamName(teams, draft.homeTeamId, match.home.name);
+    case 'away':
+      return teamName(teams, draft.awayTeamId, match.away.name);
+    case 'round':
+      return draft.round || match.round;
+    case 'venue':
+      return draft.venue || match.venue;
+    case 'updatedAt':
+      return match.updatedAt;
+    case 'score':
+      return scoreSortValue(draft, match);
+  }
+}
+
 function scoreDisplay(home: string, away: string, persistedHome: number | null, persistedAway: number | null): string {
   const homeLabel = home.trim() || (persistedHome != null ? String(persistedHome) : '–');
   const awayLabel = away.trim() || (persistedAway != null ? String(persistedAway) : '–');
@@ -99,12 +147,16 @@ export function EditableMatchesTable({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<MatchSortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection | null>(null);
 
   useEffect(() => {
     setDrafts({});
     setSearchQuery('');
     setActiveCell(null);
     setError(null);
+    setSortKey(null);
+    setSortDirection(null);
   }, [resetKey]);
 
   useEffect(() => {
@@ -133,6 +185,16 @@ export function EditableMatchesTable({
     [matches, searchQuery, drafts, teams],
   );
 
+  const displayedMatches = useMemo(() => {
+    if (!sortKey || !sortDirection) return filteredMatches;
+
+    return sortRows(
+      filteredMatches,
+      (match) => matchSortValue(match, getDraft(match), sortKey, teams),
+      sortDirection,
+    );
+  }, [filteredMatches, sortDirection, sortKey, drafts, teams]);
+
   const hasDirtyDrafts = dirtyMatchIds.length > 0;
   const isBusy = saving || deletingId !== null;
 
@@ -151,6 +213,12 @@ export function EditableMatchesTable({
   function activateCell(matchId: string, field: EditableField) {
     if (isBusy) return;
     setActiveCell({ matchId, field });
+  }
+
+  function handleSort(columnKey: MatchSortField) {
+    const next = nextSortDirection(sortKey, sortDirection, columnKey);
+    setSortKey(next.key as MatchSortField | null);
+    setSortDirection(next.direction);
   }
 
   function handleDiscard() {
@@ -272,28 +340,62 @@ export function EditableMatchesTable({
           <thead>
             <tr className="bg-slate-900/70 text-left text-slate-300">
               <th scope="col" className="px-3 py-2 font-medium">
-                Fecha (UTC)
+                <SortableColumnHeader
+                  label="Fecha (UTC)"
+                  direction={sortKey === 'date' ? sortDirection : null}
+                  onClick={() => handleSort('date')}
+                />
               </th>
               <th scope="col" className="px-3 py-2 font-medium">
-                Estado
+                <SortableColumnHeader
+                  label="Estado"
+                  direction={sortKey === 'status' ? sortDirection : null}
+                  onClick={() => handleSort('status')}
+                />
               </th>
               <th scope="col" className="px-3 py-2 text-right font-medium">
-                Local
+                <SortableColumnHeader
+                  label="Local"
+                  direction={sortKey === 'home' ? sortDirection : null}
+                  onClick={() => handleSort('home')}
+                  className="w-full justify-end"
+                />
               </th>
               <th scope="col" className="whitespace-nowrap px-2 py-2 text-center font-medium">
-                Marcador
+                <SortableColumnHeader
+                  label="Marcador"
+                  direction={sortKey === 'score' ? sortDirection : null}
+                  onClick={() => handleSort('score')}
+                  className="w-full justify-center"
+                />
               </th>
               <th scope="col" className="px-3 py-2 font-medium">
-                Visitante
+                <SortableColumnHeader
+                  label="Visitante"
+                  direction={sortKey === 'away' ? sortDirection : null}
+                  onClick={() => handleSort('away')}
+                />
               </th>
               <th scope="col" className="px-3 py-2 font-medium">
-                Jornada
+                <SortableColumnHeader
+                  label="Jornada"
+                  direction={sortKey === 'round' ? sortDirection : null}
+                  onClick={() => handleSort('round')}
+                />
               </th>
               <th scope="col" className="px-3 py-2 font-medium">
-                Sede
+                <SortableColumnHeader
+                  label="Sede"
+                  direction={sortKey === 'venue' ? sortDirection : null}
+                  onClick={() => handleSort('venue')}
+                />
               </th>
               <th scope="col" className="w-0 whitespace-nowrap px-3 py-2 font-medium">
-                Modificado
+                <SortableColumnHeader
+                  label="Modificado"
+                  direction={sortKey === 'updatedAt' ? sortDirection : null}
+                  onClick={() => handleSort('updatedAt')}
+                />
               </th>
               <th scope="col" className="w-0 whitespace-nowrap px-3 py-2 text-center font-medium">
                 <span className="sr-only">Eliminar</span>
@@ -301,14 +403,14 @@ export function EditableMatchesTable({
             </tr>
           </thead>
           <tbody>
-            {filteredMatches.length === 0 ? (
+            {displayedMatches.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-3 py-6 text-center text-sm text-slate-500">
                   Ningún partido coincide con la búsqueda.
                 </td>
               </tr>
             ) : (
-              filteredMatches.map((match) => {
+              displayedMatches.map((match) => {
                 const draft = getDraft(match);
                 const dirty = drafts[match.id] && isDraftDirty(match, draft);
                 const labelBase = `${match.home.name ?? 'local'} vs ${match.away.name ?? 'visitante'}`;

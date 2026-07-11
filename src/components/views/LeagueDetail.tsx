@@ -13,7 +13,8 @@ import type {
   Standing,
   Team,
 } from '@/lib/types';
-import { DataTable, SectionTitle, type Column } from '@/components/ui/Ui';
+import { DataTable, type Column } from '@/components/ui/DataTable';
+import { SectionTitle } from '@/components/ui/Ui';
 import { DataSection, ErrorState, LoadingState } from '@/components/states/States';
 import { formatDateTime } from '@/lib/format';
 import { sortMatchesByDateAsc } from '@/lib/match-sort';
@@ -91,21 +92,46 @@ export function LeagueDetail({
   );
 
   const standingColumns: Column<Standing>[] = [
-    { key: 'team', header: 'Equipo', render: (r) => r.teamName ?? r.teamId ?? '—' },
-    { key: 'pj', header: 'PJ', render: (r) => r.played ?? '—', className: 'text-right' },
-    { key: 'w', header: 'G', render: (r) => r.wins ?? '—', className: 'text-right' },
+    {
+      key: 'team',
+      header: 'Equipo',
+      render: (r) => r.teamName ?? r.teamId ?? '—',
+      sortValue: (r) => r.teamName ?? r.teamId,
+    },
+    {
+      key: 'pj',
+      header: 'PJ',
+      render: (r) => r.played ?? '—',
+      className: 'text-right',
+      sortValue: (r) => r.played,
+    },
+    {
+      key: 'w',
+      header: 'G',
+      render: (r) => r.wins ?? '—',
+      className: 'text-right',
+      sortValue: (r) => r.wins,
+    },
     {
       key: 'dt',
       header: 'E',
       render: (r) => r.draws ?? r.ties ?? '—',
       className: 'text-right',
+      sortValue: (r) => r.draws ?? r.ties,
     },
-    { key: 'l', header: 'P', render: (r) => r.losses ?? '—', className: 'text-right' },
+    {
+      key: 'l',
+      header: 'P',
+      render: (r) => r.losses ?? '—',
+      className: 'text-right',
+      sortValue: (r) => r.losses,
+    },
     {
       key: 'pts',
       header: 'Pts',
       render: (r) => r.points ?? '—',
       className: 'text-right font-semibold',
+      sortValue: (r) => r.points,
     },
   ];
 

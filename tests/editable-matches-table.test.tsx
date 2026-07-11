@@ -51,6 +51,31 @@ describe('EditableMatchesTable', () => {
     expect(screen.getByText('Cruz Azul')).toBeInTheDocument();
   });
 
+  it('sorts matches when a column header is clicked', () => {
+    const earlierMatch: Match = {
+      ...match,
+      id: 'api_2',
+      date: '2026-06-01T18:00:00.000Z',
+      home: { teamId: 't3', name: 'Cruz Azul', logo: null, score: null },
+      away: { teamId: 't4', name: 'Pumas', logo: null, score: null },
+    };
+
+    render(
+      <EditableMatchesTable
+        matches={[match, earlierMatch]}
+        resetKey="lg_mx:se25"
+        onSave={vi.fn(() => null)}
+        onDelete={vi.fn(() => null)}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Fecha \(UTC\)/i }));
+
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0]).toHaveTextContent('Cruz Azul');
+    expect(rows[1]).toHaveTextContent('América');
+  });
+
   it('shows typed score values after clicking the score cell', () => {
     render(
       <EditableMatchesTable
