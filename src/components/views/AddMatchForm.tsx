@@ -3,8 +3,12 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type FormEvent } from 'react';
-import { useApi } from '@/lib/use-api';
-import type { ApiCollection, ApiResource, League, Season, Team } from '@/lib/types';
+import {
+  useLeagueQuery,
+  useLeagueSeasonsQuery,
+  useLeagueTeamsQuery,
+} from '@/lib/query/hooks/league';
+import type { League, Season, Team } from '@/lib/types';
 import { leaguePath } from '@/lib/leagues';
 import {
   EMPTY_MATCH_FORM,
@@ -15,7 +19,7 @@ import {
   validateMatchForm,
   type MatchFormValues,
 } from '@/lib/match-form';
-import { createMatchApi } from '@/lib/match-api';
+import { useCreateMatchMutation } from '@/lib/query/liga-mx/mutations';
 import { stashCreatedMatch } from '@/lib/pending-created-match';
 import { ApiClientError } from '@/lib/api';
 import { venueNameForTeam } from '@/lib/venues';
@@ -38,18 +42,18 @@ export function AddMatchView({
   seasonYear: number | null;
 }) {
   const router = useRouter();
-  const id = encodeURIComponent(leagueId);
-  const leagueRes = useApi<ApiResource<League>>(`/v1/leagues/${id}`);
-  const seasonsRes = useApi<ApiCollection<Season>>(`/v1/leagues/${id}/seasons`);
-  const teamsRes = useApi<ApiCollection<Team>>(`/v1/leagues/${id}/teams?pageSize=100`);
+  const leagueRes = useLeagueQuery(leagueId);
+  const seasonsRes = useLeagueSeasonsQuery(leagueId);
+  const teamsRes = useLeagueTeamsQuery(leagueId);
+  const createMatchMutation = useCreateMatchMutation(leagueId, seasonYear ?? 0);
   const [values, setValues] = useState<MatchFormValues>(EMPTY_MATCH_FORM);
   const [venueEditedByUser, setVenueEditedByUser] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const league = leagueRes.data?.data;
-  const seasons = seasonsRes.data?.data ?? [];
-  const teams = teamsRes.data?.data ?? [];
+  const league = leagueRes.data;
+  const seasons = seasonsRes.data;
+  const teams = teamsRes.data;
   const currentSeason = useMemo(() => pickDefaultSeason(seasons), [seasons]);
 
   const selectedSeason = useMemo(() => {
@@ -61,7 +65,7 @@ export function AddMatchView({
 
   const backHref = league
     ? leaguePath({ id: league.id, externalId: league.externalId })
-    : `/leagues/${id}`;
+    : `/leagues/${encodeURIComponent(leagueId)}`;
 
   function updateField<K extends keyof MatchFormValues>(field: K, value: MatchFormValues[K]) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -106,7 +110,7 @@ export function AddMatchView({
 
     setSubmitting(true);
     try {
-      const created = await createMatchApi(leagueId, bodyOrError, selectedSeason.year);
+      const created = await createMatchMutation.mutateAsync(bodyOrError);
       stashCreatedMatch(created, selectedSeason.id);
       router.push(backHref);
     } catch (err) {

@@ -1,15 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useApi } from '@/lib/use-api';
 import { ApiClientError } from '@/lib/api';
 import { useToast } from '@/components/notifications/ToastProvider';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
 import { DataSection } from '@/components/states/States';
-import { patchTeamApi } from '@/lib/team-api';
+import { LIGA_MX_LEAGUE_ID } from '@/lib/liga-mx';
 import { applyTeamPatch } from '@/lib/team-edits';
 import { useTeamOverrides } from '@/lib/use-team-overrides';
+import { useTeamQuery } from '@/lib/query/hooks/league';
+import { usePatchTeamMutation } from '@/lib/query/liga-mx/mutations';
 import {
   TEAM_FORM_FIELD_LABELS,
   formValuesToPatch,
@@ -18,7 +19,7 @@ import {
   type TeamFormField,
   type TeamFormValues,
 } from '@/lib/team-form';
-import type { ApiResource, Team } from '@/lib/types';
+import type { Team } from '@/lib/types';
 import { truncateRecordId } from '@/lib/liga-mx-paths';
 import {
   DetailEditableField,
@@ -54,12 +55,12 @@ function displayTeamField(team: Team, field: TeamFormField): string {
 export function LigaMxTeamDetail({ teamId }: { teamId: string }) {
   const toast = useToast();
   const edit = useAmericanFootballDetailEdit();
-  const teamRes = useApi<ApiResource<Team>>(`/v1/teams/${encodeURIComponent(teamId)}`);
+  const teamRes = useTeamQuery(teamId);
+  const patchTeamMutation = usePatchTeamMutation(LIGA_MX_LEAGUE_ID);
   const { overrides: teamOverrides } = useTeamOverrides();
   const [formValues, setFormValues] = useState<TeamFormValues | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
 
-  const baseTeam = teamRes.data?.data;
+  const baseTeam = teamRes.data;
   const mergedTeam = useMemo(() => {
     if (!baseTeam) return null;
     return applyTeamPatch(baseTeam, teamOverrides[baseTeam.id]);
@@ -69,7 +70,7 @@ export function LigaMxTeamDetail({ teamId }: { teamId: string }) {
     if (mergedTeam) {
       setFormValues(teamToFormValues(mergedTeam));
     }
-  }, [mergedTeam, reloadKey]);
+  }, [mergedTeam]);
 
   const updateField = useCallback((field: TeamFormField, value: string) => {
     setFormValues((current) => (current ? { ...current, [field]: value } : current));
@@ -93,11 +94,13 @@ export function LigaMxTeamDetail({ teamId }: { teamId: string }) {
 
     edit.setSubmitting(true);
     try {
-      await patchTeamApi(baseTeam.id, formValuesToPatch(formValues, 'soccer'));
+      const updatedTeam = await patchTeamMutation.mutateAsync({
+        teamId: baseTeam.id,
+        patch: formValuesToPatch(formValues, 'soccer'),
+      });
+      setFormValues(teamToFormValues(applyTeamPatch(updatedTeam, teamOverrides[updatedTeam.id])));
       toast.success('Equipo actualizado');
       edit.finishEdit();
-      setReloadKey((key) => key + 1);
-      teamRes.reload();
     } catch (err) {
       const message = err instanceof ApiClientError ? err.message : 'No se pudo guardar el equipo.';
       toast.error('Error en la solicitud', message);

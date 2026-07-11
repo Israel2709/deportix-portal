@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApi } from '@/lib/use-api';
-import type { ApiCollection, ApiResource, DataStatus, League } from '@/lib/types';
+import type { ApiResource, DataStatus } from '@/lib/types';
+import { useAmericanFootballLeaguesQuery } from '@/lib/query/american-football/hooks';
+import { americanFootballLeagueBrowsePath, americanFootballTabPath, type AmericanFootballTab } from '@/lib/american-football-paths';
+import { AMERICAN_FOOTBALL_SPORT_LABEL } from '@/lib/sports';
 import { Card, CoverageBadge, ResourceDot, SectionTitle, coverageLevel } from '@/components/ui/Ui';
 import { DataSection } from '@/components/states/States';
 import { formatDateTime } from '@/lib/format';
-import { americanFootballLeaguePath, americanFootballTabPath, type AmericanFootballTab } from '@/lib/american-football-paths';
-import { AMERICAN_FOOTBALL_SPORT_LABEL } from '@/lib/sports';
 import { AmericanFootballDataLoader } from './american-football/AmericanFootballDataLoader';
 import { AmericanFootballContenidoTab } from './american-football/AmericanFootballContenidoTab';
 import { AmericanFootballLeaguesBrowse } from './american-football/AmericanFootballLeaguesBrowse';
@@ -27,9 +28,8 @@ function tabButtonClass(active: boolean, accent?: 'blue'): string {
 export function AmericanFootballView({ initialTab = 'contenido' }: { initialTab?: AmericanFootballTab }) {
   const router = useRouter();
   const [tab, setTab] = useState<AmericanFootballTab>(initialTab);
-  const [contenidoKey, setContenidoKey] = useState(0);
   const status = useApi<ApiResource<DataStatus>>('/v1/data-status');
-  const leagues = useApi<ApiCollection<League>>('/v1/leagues?sport=american-football');
+  const leagues = useAmericanFootballLeaguesQuery();
   const americanFootball = status.data?.data.sports.find((s) => s.slug === 'american-football');
   const prevTab = useRef(tab);
 
@@ -53,7 +53,6 @@ export function AmericanFootballView({ initialTab = 'contenido' }: { initialTab?
   useEffect(() => {
     if (prevTab.current === 'loader' && tab !== 'loader') {
       refreshCoverage();
-      setContenidoKey((key) => key + 1);
     }
     prevTab.current = tab;
   }, [tab, refreshCoverage]);
@@ -108,7 +107,7 @@ export function AmericanFootballView({ initialTab = 'contenido' }: { initialTab?
       </div>
 
       {tab === 'contenido' ? (
-        <AmericanFootballContenidoTab refreshKey={contenidoKey} />
+        <AmericanFootballContenidoTab />
       ) : tab === 'coverage' ? (
         <>
           <section>
@@ -151,19 +150,19 @@ export function AmericanFootballView({ initialTab = 'contenido' }: { initialTab?
             <DataSection
               loading={leagues.loading}
               error={leagues.error}
-              isEmpty={(leagues.data?.data.length ?? 0) === 0}
+              isEmpty={leagues.data.length === 0}
               onRetry={leagues.reload}
               emptyTitle={`Aún no hay datos de ${AMERICAN_FOOTBALL_SPORT_LABEL} cargados`}
               emptyHint="Usa la pestaña Carga de datos para registrar ligas, equipos, partidos y clasificación."
               emptyAction={<AmericanFootballLoaderLink />}
             >
               <ul className="space-y-2">
-                {leagues.data?.data.map((league) => (
-                  <li key={league.id}>
-                    <Link href={americanFootballLeaguePath(league)} className="block">
+                {leagues.data.map((item) => (
+                  <li key={item.league.id}>
+                    <Link href={americanFootballLeagueBrowsePath(item.league.id)} className="block">
                       <Card className="transition hover:border-blue-500/40">
-                        <p className="font-medium text-slate-100">{league.name ?? league.id}</p>
-                        <p className="text-xs text-slate-400">{league.country ?? '—'}</p>
+                        <p className="font-medium text-slate-100">{item.league.name ?? item.league.id}</p>
+                        <p className="text-xs text-slate-400">{item.country.name ?? '—'}</p>
                       </Card>
                     </Link>
                   </li>

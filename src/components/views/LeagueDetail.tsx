@@ -2,29 +2,23 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { useApi } from '@/lib/use-api';
-import { useAllMatches } from '@/lib/use-all-matches';
-import type {
-  ApiCollection,
-  ApiResource,
-  League,
-  Match,
-  Season,
-  Standing,
-  Team,
-} from '@/lib/types';
+import {
+  useLeagueMatchesQuery,
+  useLeagueQuery,
+  useLeagueSeasonsQuery,
+  useLeagueStandingsQuery,
+  useLeagueTeamsQuery,
+} from '@/lib/query/hooks/league';
+import type { Match, Standing, Team } from '@/lib/types';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { SectionTitle } from '@/components/ui/Ui';
 import { DataSection, ErrorState, LoadingState } from '@/components/states/States';
 import { formatDateTime } from '@/lib/format';
-import { sortMatchesByDateAsc } from '@/lib/match-sort';
 import { isLocalMatch, removeLocalMatch, updateLocalMatch } from '@/lib/local-matches';
 import { addMatchFormPath } from '@/lib/match-form';
 import { type MatchEditPatch } from '@/lib/match-edits';
-import { deleteMatchApi, patchMatch } from '@/lib/match-api';
 import { ApiClientError } from '@/lib/api';
 import { useLocalMatches } from '@/lib/use-local-matches';
-import { applyTeamOverrides } from '@/lib/team-edits';
 import { useTeamOverrides } from '@/lib/use-team-overrides';
 import { EditableMatchesTable } from '@/components/views/EditableMatchesTable';
 import { TeamMiniCard } from '@/components/teams/TeamMiniCard';
@@ -33,6 +27,12 @@ import { LigaMxSeasonSection } from '@/components/views/LigaMxSeasonSection';
 import { LIGA_MX_LEAGUE_ID } from '@/lib/liga-mx';
 import { consumeCreatedMatch } from '@/lib/pending-created-match';
 import { pickDefaultSeason } from '@/lib/seasons';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query/keys';
+import {
+  useDeleteMatchMutation,
+  usePatchMatchMutation,
+} from '@/lib/query/liga-mx/mutations';
 
 export function LeagueDetail({
   league: leagueId,
@@ -43,13 +43,13 @@ export function LeagueDetail({
   title?: string;
   intro?: string;
 }) {
-  const id = encodeURIComponent(leagueId);
   const isLigaMx = leagueId === LIGA_MX_LEAGUE_ID;
-  const leagueRes = useApi<ApiResource<League>>(`/v1/leagues/${id}`);
-  const seasonsRes = useApi<ApiCollection<Season>>(`/v1/leagues/${id}/seasons`);
+  const leagueRes = useLeagueQuery(leagueId);
+  const seasonsRes = useLeagueSeasonsQuery(leagueId);
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const seasons = seasonsRes.data?.data ?? [];
+  const seasons = seasonsRes.data;
   const effectiveSelectedSeasonId = useMemo(() => {
     if (selectedSeasonId && seasons.some((season) => season.id === selectedSeasonId)) {
       return selectedSeasonId;
@@ -63,33 +63,35 @@ export function LeagueDetail({
   );
   const selectedYear = selectedSeason?.year ?? null;
 
-  const standingsPath =
-    selectedYear !== null ? `/v1/leagues/${id}/standings?season=${selectedYear}` : null;
-  const teamsRes = useApi<ApiCollection<Team>>(`/v1/leagues/${id}/teams?pageSize=100`);
-  const standingsRes = useApi<ApiCollection<Standing>>(standingsPath);
-  const matchesRes = useAllMatches(leagueId, selectedYear);
+  const teamsRes = useLeagueTeamsQuery(leagueId);
+  const standingsRes = useLeagueStandingsQuery(leagueId, selectedYear);
+  const matchesRes = useLeagueMatchesQuery(leagueId, selectedYear, selectedSeason?.id ?? null);
+  const patchMatchMutation = usePatchMatchMutation(leagueId, selectedYear ?? 0);
+  const deleteMatchMutation = useDeleteMatchMutation(leagueId, selectedYear ?? 0);
 
   useEffect(() => {
     const pending = consumeCreatedMatch();
-    if (!pending) return;
+    if (!pending || selectedYear === null) return;
 
     if (pending.seasonId) {
       setSelectedSeasonId(pending.seasonId);
     }
-    matchesRes.appendMatches([pending.match]);
-  }, [matchesRes.appendMatches]);
 
-  const league = leagueRes.data?.data;
-  const { matches: localMatches, reload: reloadLocalMatches } = useLocalMatches(
+    queryClient.setQueryData<Match[]>(queryKeys.matches(leagueId, selectedYear), (current) => {
+      const existing = current ?? [];
+      if (existing.some((match) => match.id === pending.match.id)) return existing;
+      return [...existing, pending.match];
+    });
+  }, [leagueId, queryClient, selectedYear]);
+
+  const league = leagueRes.data;
+  const { reload: reloadLocalMatches } = useLocalMatches(
     league?.id ?? null,
     selectedSeason?.id ?? null,
   );
   const { overrides: teamOverrides } = useTeamOverrides();
-
-  const teamsWithOverrides = useMemo(
-    () => applyTeamOverrides(teamsRes.data?.data ?? [], teamOverrides),
-    [teamsRes.data, teamOverrides],
-  );
+  const teamsWithOverrides = teamsRes.data;
+  const sortedMatches = matchesRes.data;
 
   const standingColumns: Column<Standing>[] = [
     {
@@ -135,21 +137,14 @@ export function LeagueDetail({
     },
   ];
 
-  const sortedMatches = useMemo(
-    () => sortMatchesByDateAsc([...matchesRes.data, ...localMatches]),
-    [matchesRes.data, localMatches],
-  );
-
   async function handleSaveMatchEdits(
     edits: Record<string, MatchEditPatch>,
   ): Promise<string | null> {
-    if (!league?.id || !selectedSeason?.id) {
+    if (!league?.id || !selectedSeason?.id || selectedYear === null) {
       return 'No se pudo guardar los cambios.';
     }
 
     try {
-      const updatedMatches: Match[] = [];
-
       for (const [matchId, patch] of Object.entries(edits)) {
         const match = sortedMatches.find((entry) => entry.id === matchId);
         if (!match) continue;
@@ -157,12 +152,12 @@ export function LeagueDetail({
         if (isLocalMatch(match)) {
           updateLocalMatch(league.id, selectedSeason.id, matchId, patch, teamsWithOverrides);
         } else {
-          updatedMatches.push(await patchMatch(leagueId, matchId, patch));
+          await patchMatchMutation.mutateAsync({ matchId, patch });
         }
       }
 
       reloadLocalMatches();
-      matchesRes.applyUpdates(updatedMatches);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.matches(leagueId, selectedYear) });
       return null;
     } catch (err) {
       if (err instanceof ApiClientError) return err.message;
@@ -171,7 +166,7 @@ export function LeagueDetail({
   }
 
   async function handleDeleteMatch(matchId: string): Promise<string | null> {
-    if (!league?.id || !selectedSeason?.id) {
+    if (!league?.id || !selectedSeason?.id || selectedYear === null) {
       return 'No se pudo eliminar el partido.';
     }
 
@@ -182,9 +177,9 @@ export function LeagueDetail({
       if (isLocalMatch(match)) {
         removeLocalMatch(league.id, selectedSeason.id, matchId);
         reloadLocalMatches();
+        void queryClient.invalidateQueries({ queryKey: queryKeys.matches(leagueId, selectedYear) });
       } else {
-        await deleteMatchApi(leagueId, matchId);
-        matchesRes.removeMatches([matchId]);
+        await deleteMatchMutation.mutateAsync(matchId);
       }
       return null;
     } catch (err) {
@@ -200,16 +195,16 @@ export function LeagueDetail({
     <section>
       <SectionTitle>Clasificación</SectionTitle>
       <DataSection
-        loading={standingsRes.loading}
+        loading={standingsRes.loading && standingsRes.data.length === 0}
         error={standingsRes.error}
-        isEmpty={(standingsRes.data?.data.length ?? 0) === 0}
+        isEmpty={standingsRes.data.length === 0}
         onRetry={standingsRes.reload}
         emptyTitle="No hay clasificación disponible"
         emptyHint="La clasificación de la temporada seleccionada aún no se ha cargado."
       >
         <DataTable
           columns={standingColumns}
-          rows={standingsRes.data?.data ?? []}
+          rows={standingsRes.data}
           rowKey={(r, i) => r.teamId ?? String(i)}
           caption="Clasificación de la liga"
           countLabels={{ singular: 'equipo', plural: 'equipos' }}
@@ -290,7 +285,7 @@ export function LeagueDetail({
           <section>
             <SectionTitle>Equipos</SectionTitle>
             <DataSection
-              loading={teamsRes.loading}
+              loading={teamsRes.loading && teamsWithOverrides.length === 0}
               error={teamsRes.error}
               isEmpty={teamsWithOverrides.length === 0}
               onRetry={teamsRes.reload}
@@ -298,7 +293,7 @@ export function LeagueDetail({
               emptyHint="Las plantillas de equipos de esta liga aún no se han cargado."
             >
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {teamsWithOverrides.map((team) => (
+                {teamsWithOverrides.map((team: Team) => (
                   <TeamMiniCard
                     key={team.id}
                     team={team}

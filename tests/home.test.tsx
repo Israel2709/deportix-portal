@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { HomeView } from '@/components/views/HomeView';
 import { collection, installFetch, installPendingFetch, resource } from './helpers/mock-fetch';
+import { renderWithAppProviders } from './helpers/render';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -38,7 +39,7 @@ const dataStatus = resource({
 describe('HomeView', () => {
   it('shows the loading state while data-status is in flight', () => {
     installPendingFetch();
-    render(<HomeView />);
+    renderWithAppProviders(<HomeView />);
     expect(screen.getAllByRole('status').length).toBeGreaterThan(0);
   });
 
@@ -47,7 +48,7 @@ describe('HomeView', () => {
       { match: '/v1/data-status', body: dataStatus },
       { match: '/v1/health', body: resource({ status: 'ok', apiVersion: 'v1', dataSourceConfigured: true, timestamp: '2026-06-23T00:00:00Z' }) },
     ]);
-    render(<HomeView />);
+    renderWithAppProviders(<HomeView />);
     expect(await screen.findByRole('heading', { name: 'Soccer' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Football americano' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Soccer' }).closest('a')).toHaveAttribute(
@@ -67,7 +68,7 @@ describe('HomeView', () => {
       { match: '/v1/data-status', ok: false, status: 503, body: { error: { code: 'X', message: 'down', requestId: 'r' } } },
       { match: '/v1/health', body: resource({ status: 'ok', apiVersion: 'v1', dataSourceConfigured: true, timestamp: 't' }) },
     ]);
-    render(<HomeView />);
+    renderWithAppProviders(<HomeView />);
     expect(await screen.findAllByRole('alert')).not.toHaveLength(0);
   });
 });

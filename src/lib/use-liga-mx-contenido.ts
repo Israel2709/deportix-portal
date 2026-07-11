@@ -1,24 +1,25 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { apiGet } from '@/lib/api';
+import { useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  LIGA_MX_LEAGUE_ID,
-  resolveLigaMxTournaments,
-  tournamentFromRound,
-} from '@/lib/liga-mx';
+  useLeagueQuery,
+  useLeagueSeasonResourceQueries,
+  useLeagueSeasonsQuery,
+  useLeagueTeamsQuery,
+} from '@/lib/query/hooks/league';
+import { LIGA_MX_LEAGUE_ID, resolveLigaMxTournaments, tournamentFromRound } from '@/lib/liga-mx';
 import { readLocalMatches } from '@/lib/local-matches';
-import { applyTeamOverrides, readTeamOverrides } from '@/lib/team-edits';
-import { leagueMatchesPagePath } from '@/lib/use-all-matches';
-import type { ApiCollection, ApiResource, League, Match, Season, Standing, Team } from '@/lib/types';
+import { readTeamOverrides } from '@/lib/team-edits';
+import type { Match } from '@/lib/types';
 
 export interface LigaMxContenidoSeasonItem {
-  season: Season;
+  season: import('@/lib/types').Season;
   year: number;
 }
 
 export interface LigaMxContenidoTeamItem {
-  team: Team;
+  team: import('@/lib/types').Team;
   hasOverride: boolean;
 }
 
@@ -30,7 +31,7 @@ export interface LigaMxContenidoMatchItem {
 }
 
 export interface LigaMxContenidoStandingItem {
-  standing: Standing;
+  standing: import('@/lib/types').Standing;
   seasonId: string;
   year: number;
 }
@@ -43,7 +44,7 @@ export interface LigaMxContenidoTournamentItem {
 }
 
 export interface LigaMxContenidoData {
-  league: League | null;
+  league: import('@/lib/types').League | null;
   seasons: LigaMxContenidoSeasonItem[];
   tournaments: LigaMxContenidoTournamentItem[];
   teams: LigaMxContenidoTeamItem[];
@@ -54,122 +55,129 @@ export interface LigaMxContenidoData {
   reload: () => void;
 }
 
-async function fetchAllSeasonMatches(leagueId: string, year: number): Promise<Match[]> {
-  const matches: Match[] = [];
-  let page = 1;
-  let total = Number.POSITIVE_INFINITY;
+export function useLigaMxContenido(_refreshKey = 0): LigaMxContenidoData {
+  const queryClient = useQueryClient();
+  const leagueRes = useLeagueQuery(LIGA_MX_LEAGUE_ID);
+  const seasonsRes = useLeagueSeasonsQuery(LIGA_MX_LEAGUE_ID);
+  const teamsRes = useLeagueTeamsQuery(LIGA_MX_LEAGUE_ID);
 
-  while (matches.length < total) {
-    const response = await apiGet<ApiCollection<Match>>(leagueMatchesPagePath(leagueId, year, page));
-    matches.push(...response.data);
-    total = response.meta.pagination?.total ?? matches.length;
-    if (response.data.length === 0 || response.data.length < 100) break;
-    page += 1;
-  }
+  const loadedSeasons = useMemo(
+    () =>
+      seasonsRes.data
+        .filter((season) => season.year != null)
+        .map((season) => ({ season, year: season.year!, id: season.id }))
+        .sort((left, right) => right.year - left.year),
+    [seasonsRes.data],
+  );
 
-  return matches;
-}
+  const { matchQueries, standingQueries } = useLeagueSeasonResourceQueries(
+    LIGA_MX_LEAGUE_ID,
+    loadedSeasons.map((entry) => ({ id: entry.id, year: entry.year })),
+  );
 
-export function useLigaMxContenido(refreshKey = 0): LigaMxContenidoData {
-  const [listKey, setListKey] = useState(0);
-  const [league, setLeague] = useState<League | null>(null);
-  const [seasons, setSeasons] = useState<LigaMxContenidoSeasonItem[]>([]);
-  const [tournaments, setTournaments] = useState<LigaMxContenidoTournamentItem[]>([]);
-  const [teams, setTeams] = useState<LigaMxContenidoTeamItem[]>([]);
-  const [matches, setMatches] = useState<LigaMxContenidoMatchItem[]>([]);
-  const [standings, setStandings] = useState<LigaMxContenidoStandingItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const overrides = readTeamOverrides();
 
-  const reload = useCallback(() => setListKey((key) => key + 1), []);
+  const teams = useMemo(
+    () =>
+      teamsRes.data
+        .map((team) => ({ team, hasOverride: team.id in overrides }))
+        .sort((left, right) => (left.team.name ?? '').localeCompare(right.team.name ?? '')),
+    [teamsRes.data, overrides],
+  );
 
-  useEffect(() => {
-    let cancelled = false;
+  const matches = useMemo(() => {
+    const items: LigaMxContenidoMatchItem[] = [];
 
-    async function load() {
-      setLoading(true);
-      setError(null);
+    loadedSeasons.forEach((entry, index) => {
+      const apiMatches = matchQueries[index]?.data ?? [];
+      const localMatches = readLocalMatches(LIGA_MX_LEAGUE_ID, entry.id);
+      const allMatches = [...apiMatches, ...localMatches];
 
-      try {
-        const leagueId = encodeURIComponent(LIGA_MX_LEAGUE_ID);
-        const [leagueEnvelope, seasonsEnvelope, teamsEnvelope] = await Promise.all([
-          apiGet<ApiResource<League>>(`/v1/leagues/${leagueId}`),
-          apiGet<ApiCollection<Season>>(`/v1/leagues/${leagueId}/seasons`),
-          apiGet<ApiCollection<Team>>(`/v1/leagues/${leagueId}/teams?pageSize=100`),
-        ]);
-
-        if (cancelled) return;
-
-        const loadedLeague = leagueEnvelope.data;
-        const loadedSeasons = seasonsEnvelope.data
-          .filter((season) => season.year != null)
-          .map((season) => ({ season, year: season.year! }))
-          .sort((left, right) => right.year - left.year);
-
-        const overrides = readTeamOverrides();
-        const loadedTeams = applyTeamOverrides(teamsEnvelope.data, overrides).map((team) => ({
-          team,
-          hasOverride: team.id in overrides,
-        }));
-
-        const matchItems: LigaMxContenidoMatchItem[] = [];
-        const standingItems: LigaMxContenidoStandingItem[] = [];
-        const tournamentItems: LigaMxContenidoTournamentItem[] = [];
-
-        for (const { season, year } of loadedSeasons) {
-          const seasonId = season.id;
-          const [apiMatches, standingsEnvelope] = await Promise.all([
-            fetchAllSeasonMatches(LIGA_MX_LEAGUE_ID, year),
-            apiGet<ApiCollection<Standing>>(`/v1/leagues/${leagueId}/standings?season=${year}`),
-          ]);
-
-          const localMatches = readLocalMatches(LIGA_MX_LEAGUE_ID, seasonId);
-          const allMatches = [...apiMatches, ...localMatches];
-
-          for (const match of allMatches) {
-            matchItems.push({
-              match,
-              seasonId,
-              year,
-              isLocal: match.id.startsWith('local_'),
-            });
-          }
-
-          for (const standing of standingsEnvelope.data) {
-            standingItems.push({ standing, seasonId, year });
-          }
-
-          const tournamentNames = resolveLigaMxTournaments(allMatches);
-          for (const name of tournamentNames) {
-            const matchCount = allMatches.filter(
-              (match) => tournamentFromRound(match.round) === name,
-            ).length;
-            tournamentItems.push({ name, year, seasonId, matchCount });
-          }
-        }
-
-        if (cancelled) return;
-
-        setLeague(loadedLeague);
-        setSeasons(loadedSeasons);
-        setTeams(loadedTeams.sort((left, right) => (left.team.name ?? '').localeCompare(right.team.name ?? '')));
-        setMatches(matchItems);
-        setStandings(standingItems);
-        setTournaments(tournamentItems);
-      } catch (loadError) {
-        if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el contenido');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+      for (const match of allMatches) {
+        items.push({
+          match,
+          seasonId: entry.id,
+          year: entry.year,
+          isLocal: match.id.startsWith('local_'),
+        });
       }
-    }
+    });
 
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [listKey, refreshKey]);
+    return items;
+  }, [loadedSeasons, matchQueries]);
 
-  return { league, seasons, tournaments, teams, matches, standings, loading, error, reload };
+  const standings = useMemo(() => {
+    const items: LigaMxContenidoStandingItem[] = [];
+
+    loadedSeasons.forEach((entry, index) => {
+      for (const standing of standingQueries[index]?.data ?? []) {
+        items.push({ standing, seasonId: entry.id, year: entry.year });
+      }
+    });
+
+    return items;
+  }, [loadedSeasons, standingQueries]);
+
+  const tournaments = useMemo(() => {
+    const items: LigaMxContenidoTournamentItem[] = [];
+
+    loadedSeasons.forEach((entry, index) => {
+      const apiMatches = matchQueries[index]?.data ?? [];
+      const localMatches = readLocalMatches(LIGA_MX_LEAGUE_ID, entry.id);
+      const allMatches = [...apiMatches, ...localMatches];
+      const tournamentNames = resolveLigaMxTournaments(allMatches);
+
+      for (const name of tournamentNames) {
+        const matchCount = allMatches.filter(
+          (match) => tournamentFromRound(match.round) === name,
+        ).length;
+        items.push({ name, year: entry.year, seasonId: entry.id, matchCount });
+      }
+    });
+
+    return items;
+  }, [loadedSeasons, matchQueries]);
+
+  const seasons = useMemo(
+    () => loadedSeasons.map(({ season, year }) => ({ season, year })),
+    [loadedSeasons],
+  );
+
+  const resourceLoading =
+    matchQueries.some((query) => query.isPending) ||
+    standingQueries.some((query) => query.isPending);
+
+  const resourceError =
+    matchQueries.find((query) => query.error)?.error ??
+    standingQueries.find((query) => query.error)?.error ??
+    null;
+
+  const loading = leagueRes.loading || seasonsRes.loading || teamsRes.loading || resourceLoading;
+  const error =
+    leagueRes.error ??
+    seasonsRes.error ??
+    teamsRes.error ??
+    (resourceError instanceof Error ? resourceError.message : null);
+
+  return {
+    league: leagueRes.data,
+    seasons,
+    tournaments,
+    teams,
+    matches,
+    standings,
+    loading,
+    error,
+    reload: () => {
+      leagueRes.reload();
+      seasonsRes.reload();
+      teamsRes.reload();
+      for (const entry of loadedSeasons) {
+        void queryClient.invalidateQueries({ queryKey: ['matches', LIGA_MX_LEAGUE_ID, entry.year] });
+        void queryClient.invalidateQueries({
+          queryKey: ['standings', LIGA_MX_LEAGUE_ID, entry.year],
+        });
+      }
+    },
+  };
 }

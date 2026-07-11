@@ -51,7 +51,7 @@ describe('team-edits', () => {
     saveTeamOverride('t1', { altName: 'Alias' });
     expect(readTeamOverrides().t1).toEqual({ altName: 'Alias' });
 
-    const merged = applyTeamOverrides([baseTeam], readTeamOverrides())[0];
+    const merged = applyTeamOverrides([baseTeam], readTeamOverrides())[0]!;
     expect(merged.altName).toBe('Alias');
 
     writeTeamOverrides({});

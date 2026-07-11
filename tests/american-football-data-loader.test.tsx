@@ -1,14 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { ToastProvider } from '@/components/notifications/ToastProvider';
+import { fireEvent, screen } from '@testing-library/react';
 import { AmericanFootballView } from '@/components/views/AmericanFootballView';
 import { collection, installFetch, resource } from './helpers/mock-fetch';
+import { renderWithAppProviders } from './helpers/render';
 
-function renderAmericanFootball() {
-  return render(
-    <ToastProvider>
-      <AmericanFootballView />
-    </ToastProvider>,
+const bffEnvelope = (response: unknown[]) => ({
+  get: 'resource',
+  parameters: [],
+  errors: [],
+  results: response.length,
+  response,
+});
+
+function renderAmericanFootball(initialTab?: 'contenido' | 'coverage' | 'browse' | 'loader') {
+  return renderWithAppProviders(
+    <AmericanFootballView initialTab={initialTab} />,
+    { withToast: true },
   );
 }
 
@@ -28,14 +35,18 @@ const statusRoute = {
   }),
 };
 
+const emptyLeaguesRoute = {
+  match: '/american-football/leagues',
+  body: bffEnvelope([]),
+};
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe('AmericanFootballView tabs and loader', () => {
   it('switches to carga de datos tab', async () => {
     installFetch([
       statusRoute,
-      { match: '/v1/leagues', body: collection([]) },
-      { match: '/american-football/leagues', body: { get: 'leagues', parameters: [], errors: [], results: 0, response: [] } },
+      emptyLeaguesRoute,
       { match: '/v1/league-types', body: collection([{ code: 'league', label: 'Liga' }, { code: 'cup', label: 'Copa' }]) },
     ]);
 
@@ -49,9 +60,9 @@ describe('AmericanFootballView tabs and loader', () => {
   });
 
   it('shows Cargar datos CTA in empty leagues section', async () => {
-    installFetch([statusRoute, { match: '/v1/leagues', body: collection([]) }]);
+    installFetch([statusRoute, emptyLeaguesRoute]);
 
-    renderAmericanFootball();
+    renderAmericanFootball('coverage');
     expect(await screen.findByText(/Aún no hay datos de Football americano cargados/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ir a carga de datos' })).toBeInTheDocument();
   });
@@ -59,8 +70,7 @@ describe('AmericanFootballView tabs and loader', () => {
   it('disables season league selector when no leagues exist', async () => {
     installFetch([
       statusRoute,
-      { match: '/v1/leagues', body: collection([]) },
-      { match: '/american-football/leagues', body: { get: 'leagues', parameters: [], errors: [], results: 0, response: [] } },
+      emptyLeaguesRoute,
       { match: '/v1/league-types', body: collection([{ code: 'league', label: 'Liga' }]) },
     ]);
 
@@ -76,26 +86,19 @@ describe('AmericanFootballView tabs and loader', () => {
     const leagueId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
     installFetch([
       statusRoute,
-      { match: '/v1/leagues', body: collection([]) },
       {
         match: '/american-football/leagues',
-        body: {
-          get: 'leagues',
-          parameters: [],
-          errors: [],
-          results: 1,
-          response: [
-            {
-              league: { id: leagueId, name: 'NFL', type: 'league', logo: null },
-              country: { name: 'USA', code: 'US', flag: null },
-              seasons: [],
-            },
-          ],
-        },
+        body: bffEnvelope([
+          {
+            league: { id: leagueId, name: 'NFL', type: 'league', logo: null },
+            country: { name: 'USA', code: 'US', flag: null },
+            seasons: [],
+          },
+        ]),
       },
       {
         match: `/american-football/seasons?league=${leagueId}`,
-        body: { get: 'seasons', parameters: { league: leagueId }, errors: [], results: 0, response: [] },
+        body: bffEnvelope([]),
       },
       { match: '/v1/league-types', body: collection([{ code: 'league', label: 'Liga' }]) },
     ]);

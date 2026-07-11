@@ -1,34 +1,34 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { useApi } from '@/lib/use-api';
-import { useAllMatches } from '@/lib/use-all-matches';
-import type { ApiCollection, ApiResource, League, Match, Season, Team } from '@/lib/types';
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { americanFootballTabPath } from '@/lib/american-football-paths';
 import { pickDefaultSeason } from '@/lib/seasons';
-import { sortMatchesByDateAsc } from '@/lib/match-sort';
 import { SectionTitle } from '@/components/ui/Ui';
 import { DataSection, EmptyState, ErrorState, LoadingState } from '@/components/states/States';
 import { LeagueSeasonSidebar } from '@/components/layout/LeagueSeasonSidebar';
 import { TeamMiniCard } from '@/components/teams/TeamMiniCard';
 import { EditableMatchesTable } from '@/components/views/EditableMatchesTable';
 import { type MatchEditPatch } from '@/lib/match-edits';
-import { deleteMatchApi, patchMatch } from '@/lib/match-api';
 import { ApiClientError } from '@/lib/api';
-import { isLocalMatch, removeLocalMatch, updateLocalMatch } from '@/lib/local-matches';
-import { useLocalMatches } from '@/lib/use-local-matches';
-import { applyTeamOverrides } from '@/lib/team-edits';
-import { useTeamOverrides } from '@/lib/use-team-overrides';
 import { AmericanFootballLoaderLink } from './AmericanFootballLoaderLink';
+import {
+  deleteAmericanFootballGameFromCache,
+  patchAmericanFootballGameInCache,
+  useAmericanFootballGamesQuery,
+  useAmericanFootballLeagueQuery,
+  useAmericanFootballSeasonsQuery,
+  useAmericanFootballTeamsQuery,
+} from '@/lib/query/american-football/hooks';
 
 export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string }) {
-  const id = encodeURIComponent(leagueId);
-  const leagueRes = useApi<ApiResource<League>>(`/v1/leagues/${id}`);
-  const seasonsRes = useApi<ApiCollection<Season>>(`/v1/leagues/${id}/seasons`);
+  const queryClient = useQueryClient();
+  const leagueRes = useAmericanFootballLeagueQuery(leagueId);
+  const seasonsRes = useAmericanFootballSeasonsQuery(leagueId);
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
 
-  const seasons = seasonsRes.data?.data ?? [];
+  const seasons = seasonsRes.data;
   const effectiveSelectedSeasonId = useMemo(() => {
     if (selectedSeasonId && seasons.some((season) => season.id === selectedSeasonId)) {
       return selectedSeasonId;
@@ -41,92 +41,50 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
     [seasons, effectiveSelectedSeasonId],
   );
   const selectedYear = selectedSeason?.year ?? null;
-  const teamsPath =
-    selectedYear !== null
-      ? `/v1/leagues/${id}/teams?pageSize=100&season=${selectedYear}`
-      : null;
-  const teamsRes = useApi<ApiCollection<Team>>(teamsPath);
-  const matchesRes = useAllMatches(leagueId, selectedYear);
 
-  const league = leagueRes.data?.data;
-  const { matches: localMatches, reload: reloadLocalMatches } = useLocalMatches(
-    league?.id ?? null,
-    selectedSeason?.id ?? null,
-  );
-  const { overrides: teamOverrides } = useTeamOverrides();
+  const teamsRes = useAmericanFootballTeamsQuery(leagueId, selectedYear);
+  const gamesRes = useAmericanFootballGamesQuery(leagueId, selectedYear);
 
-  const teamsWithOverrides = useMemo(
-    () => applyTeamOverrides(teamsRes.data?.data ?? [], teamOverrides),
-    [teamsRes.data, teamOverrides],
-  );
-
-  const sortedMatches = useMemo(
-    () => sortMatchesByDateAsc([...matchesRes.data, ...localMatches]),
-    [matchesRes.data, localMatches],
-  );
+  const league = leagueRes.league;
+  const sortedMatches = gamesRes.data;
   const loaderAction = <AmericanFootballLoaderLink>Cargar información</AmericanFootballLoaderLink>;
-
-  useEffect(() => {
-    function refreshOnVisible() {
-      if (document.visibilityState !== 'visible') return;
-      teamsRes.reload();
-      matchesRes.reload();
-    }
-
-    document.addEventListener('visibilitychange', refreshOnVisible);
-    return () => document.removeEventListener('visibilitychange', refreshOnVisible);
-  }, [teamsRes.reload, matchesRes.reload]);
 
   async function handleSaveMatchEdits(
     edits: Record<string, MatchEditPatch>,
   ): Promise<string | null> {
-    if (!league?.id || !selectedSeason?.id) {
+    if (!league?.id || selectedYear === null) {
       return 'No se pudo guardar los cambios.';
     }
 
     try {
-      const updatedMatches: Match[] = [];
-
       for (const [matchId, patch] of Object.entries(edits)) {
-        const match = sortedMatches.find((entry) => entry.id === matchId);
-        if (!match) continue;
-
-        if (isLocalMatch(match)) {
-          updateLocalMatch(league.id, selectedSeason.id, matchId, patch, teamsWithOverrides);
-        } else {
-          updatedMatches.push(await patchMatch(leagueId, matchId, patch));
-        }
+        await patchAmericanFootballGameInCache(
+          queryClient,
+          leagueId,
+          selectedYear,
+          matchId,
+          patch,
+          gamesRes.games,
+        );
       }
-
-      reloadLocalMatches();
-      matchesRes.applyUpdates(updatedMatches);
       return null;
     } catch (err) {
       if (err instanceof ApiClientError) return err.message;
-      return 'No se pudo guardar los cambios.';
+      return err instanceof Error ? err.message : 'No se pudo guardar los cambios.';
     }
   }
 
   async function handleDeleteMatch(matchId: string): Promise<string | null> {
-    if (!league?.id || !selectedSeason?.id) {
+    if (!league?.id || selectedYear === null) {
       return 'No se pudo eliminar el partido.';
     }
 
-    const match = sortedMatches.find((entry) => entry.id === matchId);
-    if (!match) return 'No se encontró el partido.';
-
     try {
-      if (isLocalMatch(match)) {
-        removeLocalMatch(league.id, selectedSeason.id, matchId);
-        reloadLocalMatches();
-      } else {
-        await deleteMatchApi(leagueId, matchId);
-        matchesRes.removeMatches([matchId]);
-      }
+      await deleteAmericanFootballGameFromCache(queryClient, leagueId, selectedYear, matchId);
       return null;
     } catch (err) {
       if (err instanceof ApiClientError) return err.message;
-      return 'No se pudo eliminar el partido.';
+      return err instanceof Error ? err.message : 'No se pudo eliminar el partido.';
     }
   }
 
@@ -184,17 +142,17 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
               <section>
                 <SectionTitle>Partidos · {selectedYear}</SectionTitle>
                 <DataSection
-                  loading={matchesRes.loading && sortedMatches.length === 0}
-                  error={matchesRes.error}
+                  loading={gamesRes.loading && sortedMatches.length === 0}
+                  error={gamesRes.error}
                   isEmpty={sortedMatches.length === 0}
-                  onRetry={matchesRes.reload}
+                  onRetry={gamesRes.reload}
                   emptyTitle="Aún no hay partidos cargados"
                   emptyHint={`No hay partidos para la temporada ${selectedYear}. Puedes registrarlos en la carga de datos.`}
                   emptyAction={loaderAction}
                 >
                   <EditableMatchesTable
                     matches={sortedMatches}
-                    teams={teamsWithOverrides}
+                    teams={teamsRes.data}
                     resetKey={`${league?.id ?? leagueId}:${selectedSeason?.id ?? 'none'}`}
                     onSave={handleSaveMatchEdits}
                     onDelete={handleDeleteMatch}
@@ -205,22 +163,17 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
               <section>
                 <SectionTitle>Equipos · {selectedYear}</SectionTitle>
                 <DataSection
-                  loading={teamsRes.loading}
+                  loading={teamsRes.loading && teamsRes.data.length === 0}
                   error={teamsRes.error}
-                  isEmpty={teamsWithOverrides.length === 0}
+                  isEmpty={teamsRes.data.length === 0}
                   onRetry={teamsRes.reload}
                   emptyTitle="Aún no hay equipos cargados"
                   emptyHint={`No hay equipos para la temporada ${selectedYear}. Puedes registrarlos en la carga de datos.`}
                   emptyAction={loaderAction}
                 >
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {teamsWithOverrides.map((team) => (
-                      <TeamMiniCard
-                        key={team.id}
-                        team={team}
-                        leagueId={leagueId}
-                        hasOverride={team.id in teamOverrides}
-                      />
+                    {teamsRes.data.map((team) => (
+                      <TeamMiniCard key={team.id} team={team} leagueId={leagueId} />
                     ))}
                   </div>
                 </DataSection>

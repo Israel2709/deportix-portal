@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { SportView } from '@/components/views/SportView';
 import { filterLeaguesByQuery } from '@/lib/leagues';
 import { readRecentSearches, recentSearchStorageKey } from '@/lib/recent-searches';
 import { collection, installFetch } from './helpers/mock-fetch';
+import { renderWithAppProviders } from './helpers/render';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -16,6 +17,7 @@ const soccerLeagues = [
     sport: 'soccer',
     country: 'Mexico',
     logo: null,
+    altLogo: null,
     updatedAt: '2026-06-01T00:00:00Z',
   },
   {
@@ -26,6 +28,7 @@ const soccerLeagues = [
     sport: 'soccer',
     country: 'Spain',
     logo: null,
+    altLogo: null,
     updatedAt: '2026-06-01T00:00:00Z',
   },
   {
@@ -36,6 +39,7 @@ const soccerLeagues = [
     sport: 'soccer',
     country: 'England',
     logo: null,
+    altLogo: null,
     updatedAt: '2026-06-01T00:00:00Z',
   },
 ];
@@ -64,7 +68,7 @@ describe('SportView — soccer leagues', () => {
       },
     ]);
 
-    render(<SportView slug="soccer" />);
+    renderWithAppProviders(<SportView slug="soccer" />);
 
     expect(await screen.findByRole('heading', { name: 'Soccer' })).toBeInTheDocument();
     expect(screen.getByLabelText('Buscar liga')).toBeInTheDocument();
@@ -84,7 +88,7 @@ describe('SportView — soccer leagues', () => {
       },
     ]);
 
-    render(<SportView slug="soccer" />);
+    renderWithAppProviders(<SportView slug="soccer" />);
     await screen.findByRole('heading', { name: 'Soccer' });
 
     const input = screen.getByLabelText('Buscar liga');
@@ -109,7 +113,7 @@ describe('SportView — soccer leagues', () => {
       },
     ]);
 
-    render(<SportView slug="soccer" />);
+    renderWithAppProviders(<SportView slug="soccer" />);
     await screen.findByRole('heading', { name: 'Soccer' });
 
     const input = screen.getByLabelText('Buscar liga');
@@ -144,7 +148,7 @@ describe('SportView — soccer leagues', () => {
       },
     ]);
 
-    render(<SportView slug="soccer" />);
+    renderWithAppProviders(<SportView slug="soccer" />);
     await screen.findByText('Búsquedas recientes');
 
     fireEvent.click(screen.getByRole('button', { name: 'mexico' }));
@@ -161,7 +165,7 @@ describe('SportView — soccer leagues', () => {
       },
     ]);
 
-    render(<SportView slug="unknown" />);
+    renderWithAppProviders(<SportView slug="unknown" />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Deporte no encontrado.');
   });
 });

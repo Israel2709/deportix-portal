@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { LeagueDetail } from '@/components/views/LeagueDetail';
 import { collection, installFetch, resource } from './helpers/mock-fetch';
+import { renderWithQueryClient } from './helpers/query-client';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -31,7 +32,7 @@ describe('LeagueDetail — partial coverage (Liga MX)', () => {
       { match: '/v1/leagues/262', body: league },
     ]);
 
-    render(<LeagueDetail league="262" title="Liga MX" />);
+    renderWithQueryClient(<LeagueDetail league="262" title="Liga MX" />);
 
     expect(await screen.findByRole('heading', { name: 'Liga MX' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Temporadas' })).toBeInTheDocument();
@@ -53,7 +54,7 @@ describe('LeagueDetail — partial coverage (Liga MX)', () => {
       { match: '/v1/leagues/262', body: league },
     ]);
 
-    render(<LeagueDetail league="262" title="Liga MX" />);
+    renderWithQueryClient(<LeagueDetail league="262" title="Liga MX" />);
     await screen.findByRole('button', { name: /2025/i });
 
     fireEvent.click(screen.getByRole('button', { name: /^2024$/i }));
@@ -71,7 +72,7 @@ describe('LeagueDetail — partial coverage (Liga MX)', () => {
       { match: '/v1/leagues/zzz', ok: false, status: 404, body: { error: { code: 'RESOURCE_NOT_FOUND', message: 'League not found.', requestId: 'r' } } },
     ]);
 
-    render(<LeagueDetail league="zzz" />);
+    renderWithQueryClient(<LeagueDetail league="zzz" />);
     expect(await screen.findByRole('alert')).toHaveTextContent('League not found.');
   });
 });

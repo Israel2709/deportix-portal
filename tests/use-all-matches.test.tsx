@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useAllMatches } from '@/lib/use-all-matches';
+import { createTestQueryClient, QueryClientWrapper } from './helpers/query-client';
 import { collection, installFetch } from './helpers/mock-fetch';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -21,7 +22,10 @@ describe('useAllMatches', () => {
       },
     ]);
 
-    const { result } = renderHook(() => useAllMatches('262', 2026));
+    const client = createTestQueryClient();
+    const { result } = renderHook(() => useAllMatches('262', 2026), {
+      wrapper: ({ children }) => <QueryClientWrapper client={client}>{children}</QueryClientWrapper>,
+    });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
@@ -39,7 +43,10 @@ describe('useAllMatches', () => {
       },
     ]);
 
-    const { result } = renderHook(() => useAllMatches('262', 2026));
+    const client = createTestQueryClient();
+    const { result } = renderHook(() => useAllMatches('262', 2026), {
+      wrapper: ({ children }) => <QueryClientWrapper client={client}>{children}</QueryClientWrapper>,
+    });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.data).toHaveLength(2);

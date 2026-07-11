@@ -2,48 +2,66 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { AmericanFootballLeagueBrowse } from '@/components/views/american-football/AmericanFootballLeagueBrowse';
 import { AmericanFootballLeaguesBrowse } from '@/components/views/american-football/AmericanFootballLeaguesBrowse';
-import { collection, installFetch, resource } from './helpers/mock-fetch';
+import { renderWithQueryClient } from './helpers/query-client';
 
 afterEach(() => vi.unstubAllGlobals());
 
-const americanFootballLeague = resource({
-  id: 'lg_nfl',
-  externalId: '1',
-  name: 'NFL',
-  type: 'league',
-  sport: 'american-football',
-  country: 'USA',
-  logo: 'https://example.com/americanFootball.png',
-  altLogo: null,
-  updatedAt: '2026-06-01T00:00:00Z',
+const bffEnvelope = (response: unknown[]) => ({
+  get: 'resource',
+  parameters: [],
+  errors: [],
+  results: response.length,
+  response,
 });
 
-const seasons = [
-  {
-    id: 'se22',
-    leagueId: 'lg_nfl',
-    year: 2022,
-    current: true,
-    startDate: null,
-    endDate: null,
-    externalId: null,
-  },
-];
+function installBffFetch(routes: { match: string; response: unknown[] }[]) {
+  return vi.fn(async (input: unknown) => {
+    const url = String(input);
+    const route = routes.find((entry) => url.includes(entry.match));
+    if (!route) throw new Error(`No mock route for ${url}`);
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify(bffEnvelope(route.response)),
+      headers: { get: () => null },
+    };
+  });
+}
 
 describe('AmericanFootballLeaguesBrowse', () => {
   it('links leagues to the NFL browse route', async () => {
-    installFetch([{ match: '/v1/leagues?sport=american-football', body: collection([americanFootballLeague.data]) }]);
+    vi.stubGlobal(
+      'fetch',
+      installBffFetch([
+        {
+          match: '/american-football/leagues',
+          response: [
+            {
+              league: {
+                id: '1',
+                name: 'NFL',
+                type: 'league',
+                logo: 'https://example.com/americanFootball.png',
+                altLogo: null,
+              },
+              country: { name: 'USA', code: 'US', flag: null },
+              seasons: [{ year: 2022, current: true }],
+            },
+          ],
+        },
+      ]),
+    );
 
-    render(<AmericanFootballLeaguesBrowse />);
+    renderWithQueryClient(<AmericanFootballLeaguesBrowse />);
 
     const link = await screen.findByRole('link', { name: /NFL/i });
-    expect(link).toHaveAttribute('href', '/american-football/leagues/lg_nfl');
+    expect(link).toHaveAttribute('href', '/american-football/leagues/1');
   });
 
   it('shows empty state with loader link when there are no leagues', async () => {
-    installFetch([{ match: '/v1/leagues?sport=american-football', body: collection([]) }]);
+    vi.stubGlobal('fetch', installBffFetch([{ match: '/american-football/leagues', response: [] }]));
 
-    render(<AmericanFootballLeaguesBrowse />);
+    renderWithQueryClient(<AmericanFootballLeaguesBrowse />);
 
     expect(await screen.findByText('Aún no hay ligas cargadas')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ir a carga de datos' })).toHaveAttribute(
@@ -55,14 +73,33 @@ describe('AmericanFootballLeaguesBrowse', () => {
 
 describe('AmericanFootballLeagueBrowse', () => {
   it('shows season sidebar and empty matches with loader link', async () => {
-    installFetch([
-      { match: '/v1/leagues/1/seasons', body: collection(seasons) },
-      { match: '/v1/leagues/1/teams', body: collection([]) },
-      { match: '/v1/leagues/1/matches', body: collection([]) },
-      { match: '/v1/leagues/1', body: americanFootballLeague },
-    ]);
+    vi.stubGlobal(
+      'fetch',
+      installBffFetch([
+        {
+          match: '/american-football/leagues?id=1',
+          response: [
+            {
+              league: {
+                id: '1',
+                name: 'NFL',
+                type: 'league',
+                logo: 'https://example.com/americanFootball.png',
+                altLogo: null,
+              },
+              country: { name: 'USA', code: 'US', flag: null },
+              seasons: [{ year: 2022, current: true }],
+            },
+          ],
+        },
+        { match: '/american-football/leagues', response: [] },
+        { match: '/american-football/seasons?league=1', response: [2022] },
+        { match: '/american-football/teams?league=1&season=2022', response: [] },
+        { match: '/american-football/games?league=1&season=2022', response: [] },
+      ]),
+    );
 
-    render(<AmericanFootballLeagueBrowse leagueId="1" />);
+    renderWithQueryClient(<AmericanFootballLeagueBrowse leagueId="1" />);
 
     expect(await screen.findByRole('heading', { name: 'NFL' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Temporadas' })).toBeInTheDocument();
@@ -74,14 +111,25 @@ describe('AmericanFootballLeagueBrowse', () => {
   });
 
   it('shows seasons empty state with loader link', async () => {
-    installFetch([
-      { match: '/v1/leagues/1/seasons', body: collection([]) },
-      { match: '/v1/leagues/1/teams', body: collection([]) },
-      { match: '/v1/leagues/1/matches', body: collection([]) },
-      { match: '/v1/leagues/1', body: americanFootballLeague },
-    ]);
+    vi.stubGlobal(
+      'fetch',
+      installBffFetch([
+        {
+          match: '/american-football/leagues?id=1',
+          response: [
+            {
+              league: { id: '1', name: 'NFL', type: 'league', logo: null, altLogo: null },
+              country: { name: 'USA', code: 'US', flag: null },
+              seasons: [],
+            },
+          ],
+        },
+        { match: '/american-football/leagues', response: [] },
+        { match: '/american-football/seasons?league=1', response: [] },
+      ]),
+    );
 
-    render(<AmericanFootballLeagueBrowse leagueId="1" />);
+    renderWithQueryClient(<AmericanFootballLeagueBrowse leagueId="1" />);
 
     expect(await screen.findByText('Sin temporadas cargadas')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Cargar información' })).toHaveAttribute(
@@ -91,27 +139,32 @@ describe('AmericanFootballLeagueBrowse', () => {
   });
 
   it('updates matches when another season is selected', async () => {
-    const seasonsWithTwo = [
-      ...seasons,
-      {
-        id: 'se21',
-        leagueId: 'lg_nfl',
-        year: 2021,
-        current: false,
-        startDate: null,
-        endDate: null,
-        externalId: null,
-      },
-    ];
+    vi.stubGlobal(
+      'fetch',
+      installBffFetch([
+        {
+          match: '/american-football/leagues?id=1',
+          response: [
+            {
+              league: { id: '1', name: 'NFL', type: 'league', logo: null, altLogo: null },
+              country: { name: 'USA', code: 'US', flag: null },
+              seasons: [
+                { year: 2022, current: true },
+                { year: 2021, current: false },
+              ],
+            },
+          ],
+        },
+        { match: '/american-football/leagues', response: [] },
+        { match: '/american-football/seasons?league=1', response: [2022, 2021] },
+        { match: '/american-football/teams?league=1&season=2022', response: [] },
+        { match: '/american-football/teams?league=1&season=2021', response: [] },
+        { match: '/american-football/games?league=1&season=2022', response: [] },
+        { match: '/american-football/games?league=1&season=2021', response: [] },
+      ]),
+    );
 
-    installFetch([
-      { match: '/v1/leagues/1/seasons', body: collection(seasonsWithTwo) },
-      { match: '/v1/leagues/1/teams', body: collection([]) },
-      { match: '/v1/leagues/1/matches', body: collection([]) },
-      { match: '/v1/leagues/1', body: americanFootballLeague },
-    ]);
-
-    render(<AmericanFootballLeagueBrowse leagueId="1" />);
+    renderWithQueryClient(<AmericanFootballLeagueBrowse leagueId="1" />);
     await screen.findByRole('button', { name: /2022/i });
 
     fireEvent.click(screen.getByRole('button', { name: /^2021$/i }));

@@ -1,14 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ApiClientError, apiGet } from '@/lib/api';
+import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { ApiClientError } from '@/lib/api';
 import { useToast } from '@/components/notifications/ToastProvider';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { DataSection } from '@/components/states/States';
 import { formatDateTimeShort } from '@/lib/format';
-import { isLocalMatch, readLocalMatches, updateLocalMatch } from '@/lib/local-matches';
+import { isLocalMatch, updateLocalMatch } from '@/lib/local-matches';
 import { LIGA_MX_LEAGUE_ID } from '@/lib/liga-mx';
-import { patchMatch } from '@/lib/match-api';
 import {
   draftToPatch,
   matchToDraft,
@@ -19,9 +19,15 @@ import {
   MATCH_STATUS_OPTIONS,
   formatMatchStatusOption,
 } from '@/lib/match-form';
-import { leagueMatchesPagePath } from '@/lib/use-all-matches';
-import { applyTeamOverrides, readTeamOverrides } from '@/lib/team-edits';
-import type { ApiCollection, Match, Season, Team } from '@/lib/types';
+import { useLocalMatches } from '@/lib/use-local-matches';
+import {
+  useLeagueMatchesQuery,
+  useLeagueSeasonsQuery,
+  useLeagueTeamsQuery,
+} from '@/lib/query/hooks/league';
+import { usePatchMatchMutation } from '@/lib/query/liga-mx/mutations';
+import { queryKeys } from '@/lib/query/keys';
+import type { Match, Season, Team } from '@/lib/types';
 import { truncateRecordId, ligaMxTeamDetailPath } from '@/lib/liga-mx-paths';
 import Link from 'next/link';
 import {
@@ -54,69 +60,53 @@ export function LigaMxMatchDetail({
 }) {
   const toast = useToast();
   const edit = useAmericanFootballDetailEdit();
-  const [match, setMatch] = useState<Match | null>(null);
+  const queryClient = useQueryClient();
+  const seasonYear = year ? Number(year) : null;
+  const teamsRes = useLeagueTeamsQuery(LIGA_MX_LEAGUE_ID);
+  const seasonsRes = useLeagueSeasonsQuery(LIGA_MX_LEAGUE_ID);
+  const matchesRes = useLeagueMatchesQuery(
+    seasonId && seasonYear !== null ? LIGA_MX_LEAGUE_ID : null,
+    seasonYear,
+    seasonId ?? null,
+  );
+  const { reload: reloadLocalMatches } = useLocalMatches(
+    seasonId ? LIGA_MX_LEAGUE_ID : null,
+    seasonId ?? null,
+  );
+  const patchMatchMutation = usePatchMatchMutation(LIGA_MX_LEAGUE_ID, seasonYear ?? 0);
+
   const [draft, setDraft] = useState<MatchRowDraft | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [seasons, setSeasons] = useState<SeasonOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
 
-  const load = useCallback(async () => {
-    if (!seasonId || !year) {
-      setLoading(false);
-      setError('Faltan parámetros de temporada para cargar el partido.');
-      return;
-    }
+  const teams = useMemo(
+    () => [...teamsRes.data].sort((left, right) => (left.name ?? '').localeCompare(right.name ?? '')),
+    [teamsRes.data],
+  );
 
-    setLoading(true);
-    setError(null);
-    try {
-      const leagueId = encodeURIComponent(LIGA_MX_LEAGUE_ID);
-      const [teamsEnvelope, seasonsEnvelope] = await Promise.all([
-        apiGet<ApiCollection<Team>>(`/v1/leagues/${leagueId}/teams?pageSize=100`),
-        apiGet<ApiCollection<Season>>(`/v1/leagues/${leagueId}/seasons`),
-      ]);
-
-      const loadedTeams = applyTeamOverrides(teamsEnvelope.data, readTeamOverrides()).sort((left, right) =>
-        (left.name ?? '').localeCompare(right.name ?? ''),
-      );
-      const loadedSeasons = seasonsEnvelope.data
+  const seasons = useMemo<SeasonOption[]>(
+    () =>
+      seasonsRes.data
         .filter((season) => season.year != null)
         .map((season) => ({ season, year: season.year! }))
-        .sort((left, right) => right.year - left.year);
+        .sort((left, right) => right.year - left.year),
+    [seasonsRes.data],
+  );
 
-      const matches: Match[] = [];
-      let page = 1;
-      let total = Number.POSITIVE_INFINITY;
-      while (matches.length < total) {
-        const response = await apiGet<ApiCollection<Match>>(
-          leagueMatchesPagePath(LIGA_MX_LEAGUE_ID, Number(year), page),
-        );
-        matches.push(...response.data);
-        total = response.meta.pagination?.total ?? matches.length;
-        if (response.data.length === 0 || response.data.length < 100) break;
-        page += 1;
-      }
-      const localMatches = readLocalMatches(LIGA_MX_LEAGUE_ID, seasonId);
-      const loadedMatch = [...matches, ...localMatches].find((item) => item.id === matchId) ?? null;
-
-      setTeams(loadedTeams);
-      setSeasons(loadedSeasons);
-      setMatch(loadedMatch);
-      if (loadedMatch) {
-        setDraft(matchToDraft(loadedMatch));
-      }
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No se pudo cargar el partido');
-    } finally {
-      setLoading(false);
-    }
-  }, [matchId, seasonId, year]);
+  const match = useMemo(
+    () => matchesRes.data.find((item) => item.id === matchId) ?? null,
+    [matchesRes.data, matchId],
+  );
 
   useEffect(() => {
-    void load();
-  }, [load, reloadKey]);
+    if (match) {
+      setDraft(matchToDraft(match));
+    }
+  }, [match]);
+
+  const loading = teamsRes.loading || seasonsRes.loading || matchesRes.loading;
+  const error =
+    !seasonId || !year
+      ? 'Faltan parámetros de temporada para cargar el partido.'
+      : teamsRes.error ?? seasonsRes.error ?? matchesRes.error;
 
   const teamOptions = useMemo(
     () => teams.map((team) => ({ value: team.id, label: team.name ?? team.id })),
@@ -125,18 +115,18 @@ export function LigaMxMatchDetail({
 
   const seasonOptions = useMemo(
     () =>
-      seasons.map(({ season, year: seasonYear }) => ({
+      seasons.map(({ season, year: itemYear }) => ({
         value: season.id,
-        label: `Temporada ${seasonYear}`,
+        label: `Temporada ${itemYear}`,
       })),
     [seasons],
   );
 
   const homeTeam = teams.find((team) => team.id === (draft?.homeTeamId ?? match?.home.teamId));
   const awayTeam = teams.find((team) => team.id === (draft?.awayTeamId ?? match?.away.teamId));
-  const seasonYear =
+  const displaySeasonYear =
     seasons.find((item) => item.season.id === (draft?.seasonId ?? match?.seasonId))?.year ??
-    (year ? Number(year) : null);
+    seasonYear;
 
   function handleStartEdit() {
     if (match) {
@@ -150,7 +140,7 @@ export function LigaMxMatchDetail({
   }
 
   async function handleConfirmSave() {
-    if (!match || !draft || !seasonId) return;
+    if (!match || !draft || !seasonId || seasonYear === null) return;
     const patchOrError = draftToPatch(draft);
     if (typeof patchOrError === 'string') {
       toast.error('Validación', patchOrError);
@@ -162,12 +152,19 @@ export function LigaMxMatchDetail({
     try {
       if (isLocalMatch(match)) {
         updateLocalMatch(LIGA_MX_LEAGUE_ID, seasonId, match.id, patchOrError, teams);
+        reloadLocalMatches();
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.matches(LIGA_MX_LEAGUE_ID, seasonYear),
+        });
       } else {
-        await patchMatch(LIGA_MX_LEAGUE_ID, match.id, patchOrError);
+        const updatedMatch = await patchMatchMutation.mutateAsync({
+          matchId: match.id,
+          patch: patchOrError,
+        });
+        setDraft(matchToDraft(updatedMatch));
       }
       toast.success('Partido actualizado');
       edit.finishEdit();
-      setReloadKey((key) => key + 1);
     } catch (err) {
       const message = err instanceof ApiClientError ? err.message : 'No se pudo guardar el partido.';
       toast.error('Error en la solicitud', message);
@@ -204,6 +201,11 @@ export function LigaMxMatchDetail({
         isEmpty={!loading && !error && !match}
         emptyTitle="Partido no encontrado"
         emptyHint="Verifica que el partido exista en la temporada indicada."
+        onRetry={() => {
+          teamsRes.reload();
+          seasonsRes.reload();
+          matchesRes.reload();
+        }}
       >
         {match && draft && (
           <dl className="grid gap-4 sm:grid-cols-2">
@@ -218,7 +220,7 @@ export function LigaMxMatchDetail({
             />
             <DetailEditableSelect
               label="Temporada"
-              value={seasonYear ?? '—'}
+              value={displaySeasonYear ?? '—'}
               editing={edit.editing}
               editValue={draft.seasonId}
               onChange={(value) => updateDraft('seasonId', value)}

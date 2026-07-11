@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ApiClientError } from '@/lib/api';
 import { useToast } from '@/components/notifications/ToastProvider';
 import type { AmericanFootballFormMode } from '@/lib/american-football-forms/shared';
@@ -10,6 +11,7 @@ export function useAmericanFootballSectionState<T extends object>(
   options?: { onDataChanged?: () => void },
 ) {
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [mode, setMode] = useState<AmericanFootballFormMode>('create');
   const [values, setValues] = useState<T>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -37,9 +39,10 @@ export function useAmericanFootballSectionState<T extends object>(
         results != null ? `results: ${results}` : undefined,
       );
       reloadList();
+      void queryClient.invalidateQueries({ queryKey: ['af'] });
       options?.onDataChanged?.();
     },
-    [toast, reloadList, options?.onDataChanged],
+    [toast, reloadList, options?.onDataChanged, queryClient],
   );
 
   return {
