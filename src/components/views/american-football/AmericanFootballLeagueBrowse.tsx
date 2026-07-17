@@ -65,6 +65,7 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
           matchId,
           patch,
           gamesRes.games,
+          teamsRes.data,
         );
       }
       return null;

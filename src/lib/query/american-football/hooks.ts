@@ -236,11 +236,12 @@ export async function patchAmericanFootballGameInCache(
   gameId: string,
   patch: import('@/lib/match-edits').MatchEditPatch,
   games: AmericanFootballGameItem[],
+  teams: Team[] = [],
 ) {
   const game = games.find((entry) => entry.game.id === gameId);
   if (!game) throw new Error('No se encontró el partido.');
 
-  const body = matchEditPatchToGameUpdate(game, patch);
+  const body = matchEditPatchToGameUpdate(game, patch, teams);
   const envelope = await updateAmericanFootballGame(gameId, body);
   const updated = envelope.response[0];
   if (!updated) throw new Error('No se pudo actualizar el partido.');

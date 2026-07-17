@@ -112,9 +112,19 @@ export function americanFootballSeasonsToSeasons(
   });
 }
 
+function resolveTeamName(
+  teamId: string,
+  teams: Array<{ id: string; name: string | null }>,
+  fallback: string,
+): string {
+  const match = teams.find((team) => team.id === teamId);
+  return match?.name?.trim() || fallback;
+}
+
 export function matchEditPatchToGameUpdate(
   game: AmericanFootballGameItem,
   patch: MatchEditPatch,
+  teams: Array<{ id: string; name: string | null }> = [],
 ): import('@/lib/american-football-bff-types').AmericanFootballGameCreate {
   const values = gameToFormValues(game);
 
@@ -127,8 +137,14 @@ export function matchEditPatchToGameUpdate(
   if (patch.status) values.statusShort = patch.status;
   if (patch.round != null) values.week = patch.round;
   if (patch.venue != null) values.venueName = patch.venue;
-  if (patch.homeTeamId) values.homeId = patch.homeTeamId;
-  if (patch.awayTeamId) values.awayId = patch.awayTeamId;
+  if (patch.homeTeamId) {
+    values.homeId = patch.homeTeamId;
+    values.homeName = resolveTeamName(patch.homeTeamId, teams, values.homeName);
+  }
+  if (patch.awayTeamId) {
+    values.awayId = patch.awayTeamId;
+    values.awayName = resolveTeamName(patch.awayTeamId, teams, values.awayName);
+  }
   if (patch.homeScore != null) {
     values.homeName = values.homeName || game.teams.home.name;
   }

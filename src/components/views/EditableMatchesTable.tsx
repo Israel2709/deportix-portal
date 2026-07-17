@@ -16,6 +16,10 @@ import { isLocalMatch } from '@/lib/local-matches';
 import { nextSortDirection, sortRows, type SortDirection } from '@/lib/table-sort';
 import { SortableColumnHeader } from '@/components/ui/SortableColumnHeader';
 import { TableRecordCount } from '@/components/ui/TableRecordCount';
+import {
+  InlineSearchableSelect,
+  isInlineSelectMenuTarget,
+} from '@/components/ui/InlineSearchableSelect';
 
 const inputClassName =
   'w-full rounded border border-blue-500/50 bg-slate-950 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500';
@@ -165,6 +169,7 @@ export function EditableMatchesTable({
 
     function handlePointerDown(event: MouseEvent) {
       if (tableRef.current?.contains(event.target as Node)) return;
+      if (isInlineSelectMenuTarget(event.target)) return;
       setActiveCell(null);
     }
 
@@ -283,10 +288,17 @@ export function EditableMatchesTable({
     }
   }
 
-  const teamOptions = teams.map((team) => ({
-    value: team.id,
-    label: team.name ?? team.id,
-  }));
+  const teamOptions = useMemo(
+    () =>
+      [...teams]
+        .map((team) => ({
+          value: team.id,
+          label: team.name?.trim() || team.id,
+        }))
+        .filter((option) => option.value)
+        .sort((left, right) => left.label.localeCompare(right.label, 'es')),
+    [teams],
+  );
 
   if (matches.length === 0) return null;
 
@@ -475,21 +487,16 @@ export function EditableMatchesTable({
                       className="text-right"
                       display={teamName(teams, draft.homeTeamId, match.home.name)}
                     >
-                      <select
+                      <InlineSearchableSelect
                         aria-label={`Local de ${labelBase}`}
                         value={draft.homeTeamId}
-                        onChange={(event) => updateDraft(match.id, match, { homeTeamId: event.target.value })}
+                        onChange={(homeTeamId) => updateDraft(match.id, match, { homeTeamId })}
+                        options={teamOptions}
                         className={selectClassName}
                         disabled={isBusy || teamOptions.length === 0}
+                        emptyMessage={teamOptions.length === 0 ? 'Sin equipos cargados' : 'Sin resultados'}
                         autoFocus
-                      >
-                        <option value="">Seleccionar…</option>
-                        {teamOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </EditableCell>
 
                     <EditableCell
@@ -541,21 +548,16 @@ export function EditableMatchesTable({
                       onActivate={() => activateCell(match.id, 'awayTeamId')}
                       display={teamName(teams, draft.awayTeamId, match.away.name)}
                     >
-                      <select
+                      <InlineSearchableSelect
                         aria-label={`Visitante de ${labelBase}`}
                         value={draft.awayTeamId}
-                        onChange={(event) => updateDraft(match.id, match, { awayTeamId: event.target.value })}
+                        onChange={(awayTeamId) => updateDraft(match.id, match, { awayTeamId })}
+                        options={teamOptions}
                         className={selectClassName}
                         disabled={isBusy || teamOptions.length === 0}
+                        emptyMessage={teamOptions.length === 0 ? 'Sin equipos cargados' : 'Sin resultados'}
                         autoFocus
-                      >
-                        <option value="">Seleccionar…</option>
-                        {teamOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </EditableCell>
 
                     <EditableCell
