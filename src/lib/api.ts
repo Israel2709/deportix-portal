@@ -87,11 +87,12 @@ function networkError(err: unknown, url: string): ApiClientError {
     );
   }
   if (err instanceof TypeError) {
-    return new ApiClientError(
-      `No se pudo conectar a ${url}. Desde otro dispositivo usa http://<IP-de-tu-Mac>:3001 para el portal; la API debe estar en el puerto ${DEFAULT_API_PORT}.`,
-      'NETWORK_ERROR',
-      0,
-    );
+    const base = getApiBaseUrl();
+    const lanHint =
+      typeof window !== 'undefined' && isLocalhostUrl(envApiBaseUrl())
+        ? ` Desde otro dispositivo abre el portal como http://<IP-de-tu-Mac>:3001 y asegúrate de que deportix-api corre con pnpm dev -H 0.0.0.0 -p ${DEFAULT_API_PORT}.`
+        : ` Comprueba que ${base} es accesible desde este navegador y que deportix-api está desplegado con POST /v1/uploads.`;
+    return new ApiClientError(`No se pudo conectar a ${url}.${lanHint}`, 'NETWORK_ERROR', 0);
   }
   return new ApiClientError(
     err instanceof Error ? err.message : 'Error de red.',
@@ -103,7 +104,11 @@ function networkError(err: unknown, url: string): ApiClientError {
 /** Bypass browser/CDN caches so ETag revalidation cannot return stale 304 responses. */
 async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
-  if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+  const isFormData =
+    typeof FormData !== 'undefined' && init?.body != null && init.body instanceof FormData;
+  // Multipart uploads must not send Accept: application/json — some API CORS configs
+  // allow Content-Type but not Accept, which makes the browser block the request.
+  if (!headers.has('Accept') && !isFormData) headers.set('Accept', 'application/json');
 
   const url = apiUrl(path);
   const controller = new AbortController();
