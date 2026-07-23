@@ -14,7 +14,7 @@ const NAV = [
 export function Header() {
   const pathname = usePathname();
   return (
-    <header className="sticky top-0 z-10 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+    <header className="z-10 shrink-0 border-b border-slate-800 bg-slate-950/90 backdrop-blur">
       <div className="flex w-full flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
         <Link href="/" className="text-base font-semibold text-slate-100">
           Deportix <span className="text-blue-400">API</span>

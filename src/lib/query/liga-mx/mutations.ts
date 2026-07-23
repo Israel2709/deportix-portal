@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createMatchApi, deleteMatchApi, patchMatch } from '@/lib/match-api';
 import { patchTeamApi } from '@/lib/team-api';
 import { queryKeys } from '@/lib/query/keys';
-import type { MatchEditPatch } from '@/lib/match-edits';
+import { applyMatchPatch, type MatchEditPatch } from '@/lib/match-edits';
 import type { TeamEditPatch } from '@/lib/team-edits';
 import type { Match, Team } from '@/lib/types';
 import type { MatchCreateBody } from '@/lib/match-form';
@@ -24,9 +24,12 @@ export function usePatchMatchMutation(leagueId: string, seasonYear: number) {
   return useMutation({
     mutationFn: ({ matchId, patch }: { matchId: string; patch: MatchEditPatch }) =>
       patchMatch(leagueId, matchId, patch),
-    onSuccess: (updatedMatch) => {
+    onSuccess: (updatedMatch, { matchId, patch }) => {
       updateMatchesCache(queryClient, leagueId, seasonYear, (matches) =>
-        matches.map((match) => (match.id === updatedMatch.id ? updatedMatch : match)),
+        matches.map((match) => {
+          if (match.id !== matchId && match.id !== updatedMatch.id) return match;
+          return applyMatchPatch(updatedMatch.id === match.id ? updatedMatch : match, patch);
+        }),
       );
     },
   });

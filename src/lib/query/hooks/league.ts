@@ -11,7 +11,7 @@ import {
   fetchTeam,
 } from '@/lib/query/fetchers';
 import { queryKeys } from '@/lib/query/keys';
-import { readLocalMatches } from '@/lib/local-matches';
+import { useLocalMatches } from '@/lib/use-local-matches';
 import { applyTeamOverrides, readTeamOverrides } from '@/lib/team-edits';
 import { sortMatchesByDateAsc } from '@/lib/match-sort';
 import type { Match, Standing, Team } from '@/lib/types';
@@ -98,14 +98,20 @@ export function useLeagueMatchesQuery(
     staleTime: STALE_TIME_VOLATILE_MS,
   });
 
+  const local = useLocalMatches(leagueId, seasonId ?? null);
+
   const data = useMemo(() => {
     const apiMatches = query.data ?? [];
-    if (!leagueId || !seasonId) return sortMatchesByDateAsc(apiMatches);
-    const localMatches = readLocalMatches(leagueId, seasonId);
-    return sortMatchesByDateAsc([...apiMatches, ...localMatches]);
-  }, [query.data, leagueId, seasonId]);
+    return sortMatchesByDateAsc([...apiMatches, ...local.matches]);
+  }, [query.data, local.matches]);
 
-  return toHookResult(data, query.error, query.isPending, query.isFetching, query.refetch, []);
+  return {
+    ...toHookResult(data, query.error, query.isPending, query.isFetching, query.refetch, []),
+    reload: () => {
+      void query.refetch();
+      local.reload();
+    },
+  };
 }
 
 export function useLeagueStandingsQuery(

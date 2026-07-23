@@ -16,9 +16,8 @@ import { DataSection, ErrorState, LoadingState } from '@/components/states/State
 import { formatDateTime } from '@/lib/format';
 import { isLocalMatch, removeLocalMatch, updateLocalMatch } from '@/lib/local-matches';
 import { addMatchFormPath } from '@/lib/match-form';
-import { type MatchEditPatch } from '@/lib/match-edits';
+import { type MatchEditPatch, applyMatchPatch } from '@/lib/match-edits';
 import { ApiClientError } from '@/lib/api';
-import { useLocalMatches } from '@/lib/use-local-matches';
 import { useTeamOverrides } from '@/lib/use-team-overrides';
 import { EditableMatchesTable } from '@/components/views/EditableMatchesTable';
 import { TeamMiniCard } from '@/components/teams/TeamMiniCard';
@@ -38,10 +37,13 @@ export function LeagueDetail({
   league: leagueId,
   title,
   intro,
+  fillHeight = false,
 }: {
   league: string;
   title?: string;
   intro?: string;
+  /** Constrain layout to the parent height and scroll the matches table body. */
+  fillHeight?: boolean;
 }) {
   const isLigaMx = leagueId === LIGA_MX_LEAGUE_ID;
   const leagueRes = useLeagueQuery(leagueId);
@@ -85,10 +87,6 @@ export function LeagueDetail({
   }, [leagueId, queryClient, selectedYear]);
 
   const league = leagueRes.data;
-  const { reload: reloadLocalMatches } = useLocalMatches(
-    league?.id ?? null,
-    selectedSeason?.id ?? null,
-  );
   const { overrides: teamOverrides } = useTeamOverrides();
   const teamsWithOverrides = teamsRes.data;
   const sortedMatches = matchesRes.data;
@@ -156,8 +154,28 @@ export function LeagueDetail({
         }
       }
 
-      reloadLocalMatches();
-      void queryClient.invalidateQueries({ queryKey: queryKeys.matches(leagueId, selectedYear) });
+      // Ensure the table reflects edits immediately even if the API list is momentarily stale.
+      queryClient.setQueryData<Match[]>(queryKeys.matches(leagueId, selectedYear), (current) =>
+        (current ?? []).map((match) => {
+          const patch = edits[match.id];
+          return patch ? applyMatchPatch(match, patch, teamsWithOverrides) : match;
+        }),
+      );
+
+      matchesRes.reload();
+      await queryClient.refetchQueries({
+        queryKey: queryKeys.matches(leagueId, selectedYear),
+        type: 'active',
+      });
+
+      // Keep optimistic fields if the refetch still returns pre-update values.
+      queryClient.setQueryData<Match[]>(queryKeys.matches(leagueId, selectedYear), (current) =>
+        (current ?? []).map((match) => {
+          const patch = edits[match.id];
+          return patch ? applyMatchPatch(match, patch, teamsWithOverrides) : match;
+        }),
+      );
+
       return null;
     } catch (err) {
       if (err instanceof ApiClientError) return err.message;
@@ -176,11 +194,18 @@ export function LeagueDetail({
     try {
       if (isLocalMatch(match)) {
         removeLocalMatch(league.id, selectedSeason.id, matchId);
-        reloadLocalMatches();
-        void queryClient.invalidateQueries({ queryKey: queryKeys.matches(leagueId, selectedYear) });
       } else {
         await deleteMatchMutation.mutateAsync(matchId);
       }
+
+      queryClient.setQueryData<Match[]>(queryKeys.matches(leagueId, selectedYear), (current) =>
+        (current ?? []).filter((entry) => entry.id !== matchId),
+      );
+      matchesRes.reload();
+      await queryClient.refetchQueries({
+        queryKey: queryKeys.matches(leagueId, selectedYear),
+        type: 'active',
+      });
       return null;
     } catch (err) {
       if (err instanceof ApiClientError) return err.message;
@@ -214,8 +239,14 @@ export function LeagueDetail({
   );
 
   return (
-    <div className="space-y-8">
-      <section className="flex flex-wrap items-center gap-4">
+    <div
+      className={
+        fillHeight ? 'flex min-h-0 flex-1 flex-col gap-4 overflow-hidden' : 'space-y-8'
+      }
+    >
+      <section
+        className={`flex flex-wrap items-center gap-4 ${fillHeight ? 'shrink-0' : ''}`}
+      >
         {(league?.altLogo ?? league?.logo) && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={league.altLogo ?? league.logo ?? ''} alt="" className="h-14 w-14 rounded bg-white/5 object-contain p-1" />
@@ -225,35 +256,63 @@ export function LeagueDetail({
           <p className="text-sm text-slate-400">
             {[league?.sport, league?.country, league?.type].filter(Boolean).join(' · ') || '—'}
           </p>
-          {intro && <p className="mt-1 text-sm text-slate-400">{intro}</p>}
+          {intro && !fillHeight && <p className="mt-1 text-sm text-slate-400">{intro}</p>}
           <p className="mt-1 text-xs text-slate-500">
             Última actualización {formatDateTime(league?.updatedAt)}
           </p>
         </div>
       </section>
 
-      <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
-        <LeagueSeasonSidebar
-          seasons={seasons}
-          loading={seasonsRes.loading}
-          error={seasonsRes.error}
-          selectedSeasonId={effectiveSelectedSeasonId}
-          onSelect={setSelectedSeasonId}
-          onRetry={seasonsRes.reload}
-        />
+      <div
+        className={
+          fillHeight
+            ? 'flex min-h-0 flex-1 flex-col gap-4 overflow-hidden lg:flex-row lg:items-stretch'
+            : 'flex flex-col gap-8 lg:flex-row lg:items-start'
+        }
+      >
+        <div className={fillHeight ? 'shrink-0 lg:max-h-full lg:overflow-y-auto' : undefined}>
+          <LeagueSeasonSidebar
+            seasons={seasons}
+            loading={seasonsRes.loading}
+            error={seasonsRes.error}
+            selectedSeasonId={effectiveSelectedSeasonId}
+            onSelect={setSelectedSeasonId}
+            onRetry={seasonsRes.reload}
+          />
+        </div>
 
-        <div className="min-w-0 flex-1 space-y-8">
+        <div
+          className={
+            fillHeight
+              ? 'flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden'
+              : 'min-w-0 flex-1 space-y-8'
+          }
+        >
           {isLigaMx && selectedYear !== null ? (
-            <div className="grid gap-6 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] lg:items-start">
+            <div
+              className={`grid gap-6 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] lg:items-start ${
+                fillHeight ? 'max-h-56 shrink-0 overflow-y-auto' : ''
+              }`}
+            >
               <LigaMxSeasonSection year={selectedYear} matches={sortedMatches} />
               {standingsSection}
             </div>
           ) : (
-            standingsSection
+            <div className={fillHeight ? 'max-h-56 shrink-0 overflow-y-auto' : undefined}>
+              {standingsSection}
+            </div>
           )}
 
-          <section>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <section
+            className={
+              fillHeight ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : undefined
+            }
+          >
+            <div
+              className={`mb-3 flex flex-wrap items-center justify-between gap-3 ${
+                fillHeight ? 'shrink-0' : ''
+              }`}
+            >
               <SectionTitle>Partidos</SectionTitle>
               {selectedYear !== null && (
                 <Link
@@ -264,46 +323,51 @@ export function LeagueDetail({
                 </Link>
               )}
             </div>
-            <DataSection
-              loading={matchesRes.loading && sortedMatches.length === 0}
-              error={matchesRes.error}
-              isEmpty={sortedMatches.length === 0}
-              onRetry={matchesRes.reload}
-              emptyTitle="No hay partidos disponibles"
-              emptyHint="Los partidos de la temporada seleccionada aún no se han cargado."
-            >
-              <EditableMatchesTable
-                matches={sortedMatches}
-                teams={teamsWithOverrides}
-                resetKey={`${league?.id ?? leagueId}:${selectedSeason?.id ?? 'none'}`}
-                onSave={handleSaveMatchEdits}
-                onDelete={handleDeleteMatch}
-              />
-            </DataSection>
+            <div className={fillHeight ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : undefined}>
+              <DataSection
+                loading={matchesRes.loading && sortedMatches.length === 0}
+                error={matchesRes.error}
+                isEmpty={sortedMatches.length === 0}
+                onRetry={matchesRes.reload}
+                emptyTitle="No hay partidos disponibles"
+                emptyHint="Los partidos de la temporada seleccionada aún no se han cargado."
+              >
+                <EditableMatchesTable
+                  matches={sortedMatches}
+                  teams={teamsWithOverrides}
+                  resetKey={`${league?.id ?? leagueId}:${selectedSeason?.id ?? 'none'}`}
+                  onSave={handleSaveMatchEdits}
+                  onDelete={handleDeleteMatch}
+                  fillHeight={fillHeight}
+                />
+              </DataSection>
+            </div>
           </section>
 
-          <section>
-            <SectionTitle>Equipos</SectionTitle>
-            <DataSection
-              loading={teamsRes.loading && teamsWithOverrides.length === 0}
-              error={teamsRes.error}
-              isEmpty={teamsWithOverrides.length === 0}
-              onRetry={teamsRes.reload}
-              emptyTitle="No hay equipos disponibles"
-              emptyHint="Las plantillas de equipos de esta liga aún no se han cargado."
-            >
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {teamsWithOverrides.map((team: Team) => (
-                  <TeamMiniCard
-                    key={team.id}
-                    team={team}
-                    leagueId={leagueId}
-                    hasOverride={team.id in teamOverrides}
-                  />
-                ))}
-              </div>
-            </DataSection>
-          </section>
+          {!fillHeight && (
+            <section>
+              <SectionTitle>Equipos</SectionTitle>
+              <DataSection
+                loading={teamsRes.loading && teamsWithOverrides.length === 0}
+                error={teamsRes.error}
+                isEmpty={teamsWithOverrides.length === 0}
+                onRetry={teamsRes.reload}
+                emptyTitle="No hay equipos disponibles"
+                emptyHint="Las plantillas de equipos de esta liga aún no se han cargado."
+              >
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {teamsWithOverrides.map((team: Team) => (
+                    <TeamMiniCard
+                      key={team.id}
+                      team={team}
+                      leagueId={leagueId}
+                      hasOverride={team.id in teamOverrides}
+                    />
+                  ))}
+                </div>
+              </DataSection>
+            </section>
+          )}
         </div>
       </div>
     </div>

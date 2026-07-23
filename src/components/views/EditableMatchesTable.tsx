@@ -10,7 +10,7 @@ import {
   type MatchEditPatch,
   type MatchRowDraft,
 } from '@/lib/match-edits';
-import { formatMatchStatusOption, MATCH_STATUS_OPTIONS } from '@/lib/match-form';
+import { datetimeLocalToIso, formatMatchStatusOption, MATCH_STATUS_OPTIONS } from '@/lib/match-form';
 import { formatDateTimeShort } from '@/lib/format';
 import { isLocalMatch } from '@/lib/local-matches';
 import { nextSortDirection, sortRows, type SortDirection } from '@/lib/table-sort';
@@ -20,6 +20,7 @@ import {
   InlineSearchableSelect,
   isInlineSelectMenuTarget,
 } from '@/components/ui/InlineSearchableSelect';
+import { AlertModal } from '@/components/ui/AlertModal';
 
 const inputClassName =
   'w-full rounded border border-blue-500/50 bg-slate-950 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500';
@@ -138,12 +139,15 @@ export function EditableMatchesTable({
   resetKey,
   onSave,
   onDelete,
+  fillHeight = false,
 }: {
   matches: Match[];
   teams?: Team[];
   resetKey: string;
   onSave: (edits: Record<string, MatchEditPatch>) => string | null | Promise<string | null>;
   onDelete: (matchId: string) => string | null | Promise<string | null>;
+  /** When true, the table fills leftover flex height and scrolls inside the body. */
+  fillHeight?: boolean;
 }) {
   const tableRef = useRef<HTMLDivElement>(null);
   const [drafts, setDrafts] = useState<Record<string, MatchRowDraft>>({});
@@ -154,6 +158,7 @@ export function EditableMatchesTable({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<MatchSortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection | null>(null);
+  const [successModal, setSuccessModal] = useState<{ title: string; message: string } | null>(null);
 
   useEffect(() => {
     setDrafts({});
@@ -162,6 +167,7 @@ export function EditableMatchesTable({
     setError(null);
     setSortKey(null);
     setSortDirection(null);
+    setSuccessModal(null);
   }, [resetKey]);
 
   useEffect(() => {
@@ -246,7 +252,9 @@ export function EditableMatchesTable({
       edits[matchId] = patchOrError;
     }
 
+    const editCount = dirtyMatchIds.length;
     setSaving(true);
+    setError(null);
     try {
       const saveError = await onSave(edits);
       if (saveError) {
@@ -256,7 +264,13 @@ export function EditableMatchesTable({
 
       setDrafts({});
       setActiveCell(null);
-      setError(null);
+      setSuccessModal({
+        title: 'Cambios guardados',
+        message:
+          editCount === 1
+            ? 'El partido se actualizó correctamente.'
+            : `Se actualizaron ${editCount} partidos correctamente.`,
+      });
     } finally {
       setSaving(false);
     }
@@ -283,6 +297,10 @@ export function EditableMatchesTable({
         return next;
       });
       if (activeCell?.matchId === match.id) setActiveCell(null);
+      setSuccessModal({
+        title: 'Partido eliminado',
+        message: `Se eliminó el partido ${label}.`,
+      });
     } finally {
       setDeletingId(null);
     }
@@ -302,9 +320,38 @@ export function EditableMatchesTable({
 
   if (matches.length === 0) return null;
 
+  const rootClassName = fillHeight ? 'flex min-h-0 flex-1 flex-col gap-3' : 'flex flex-col gap-3';
+  const scrollClassName = fillHeight
+    ? 'min-h-0 flex-1 overflow-auto rounded-lg border border-slate-800'
+    : 'max-h-[min(36rem,calc(100dvh-14rem))] overflow-auto rounded-lg border border-slate-800';
+
   return (
-    <div className="space-y-3" ref={tableRef}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className={rootClassName} ref={tableRef}>
+      {(saving || deletingId !== null) && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/55 p-4"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-5 py-4 text-sm text-slate-100 shadow-xl">
+            <span
+              className="h-5 w-5 animate-spin rounded-full border-2 border-slate-500 border-t-blue-400"
+              aria-hidden
+            />
+            <span>{saving ? 'Guardando cambios…' : 'Eliminando partido…'}</span>
+          </div>
+        </div>
+      )}
+
+      <AlertModal
+        open={successModal !== null}
+        title={successModal?.title ?? ''}
+        message={successModal?.message ?? ''}
+        onClose={() => setSuccessModal(null)}
+      />
+
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <input
           type="search"
           value={searchQuery}
@@ -322,7 +369,7 @@ export function EditableMatchesTable({
       </div>
 
       {hasDirtyDrafts && (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
           <p className="text-sm text-amber-100">
             {dirtyMatchIds.length === 1
               ? 'Hay 1 partido con cambios sin guardar.'
@@ -347,28 +394,28 @@ export function EditableMatchesTable({
         </div>
       )}
 
-      {error && <p className="text-sm text-red-300">{error}</p>}
+      {error && <p className="shrink-0 text-sm text-red-300">{error}</p>}
 
-      <div className="overflow-x-auto rounded-lg border border-slate-800">
+      <div className={scrollClassName}>
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">Partidos de la liga</caption>
-          <thead>
-            <tr className="bg-slate-900/70 text-left text-slate-300">
-              <th scope="col" className="px-3 py-2 font-medium">
+          <thead className="sticky top-0 z-[1]">
+            <tr className="border-b border-slate-800 bg-slate-900 text-left text-slate-300">
+              <th scope="col" className="bg-slate-900 px-3 py-2 font-medium">
                 <SortableColumnHeader
                   label="Fecha (UTC)"
                   direction={sortKey === 'date' ? sortDirection : null}
                   onClick={() => handleSort('date')}
                 />
               </th>
-              <th scope="col" className="px-3 py-2 font-medium">
+              <th scope="col" className="bg-slate-900 px-3 py-2 font-medium">
                 <SortableColumnHeader
                   label="Estado"
                   direction={sortKey === 'status' ? sortDirection : null}
                   onClick={() => handleSort('status')}
                 />
               </th>
-              <th scope="col" className="px-3 py-2 text-right font-medium">
+              <th scope="col" className="bg-slate-900 px-3 py-2 text-right font-medium">
                 <SortableColumnHeader
                   label="Local"
                   direction={sortKey === 'home' ? sortDirection : null}
@@ -376,7 +423,7 @@ export function EditableMatchesTable({
                   className="w-full justify-end"
                 />
               </th>
-              <th scope="col" className="whitespace-nowrap px-2 py-2 text-center font-medium">
+              <th scope="col" className="whitespace-nowrap bg-slate-900 px-2 py-2 text-center font-medium">
                 <SortableColumnHeader
                   label="Marcador"
                   direction={sortKey === 'score' ? sortDirection : null}
@@ -384,35 +431,35 @@ export function EditableMatchesTable({
                   className="w-full justify-center"
                 />
               </th>
-              <th scope="col" className="px-3 py-2 font-medium">
+              <th scope="col" className="bg-slate-900 px-3 py-2 font-medium">
                 <SortableColumnHeader
                   label="Visitante"
                   direction={sortKey === 'away' ? sortDirection : null}
                   onClick={() => handleSort('away')}
                 />
               </th>
-              <th scope="col" className="px-3 py-2 font-medium">
+              <th scope="col" className="bg-slate-900 px-3 py-2 font-medium">
                 <SortableColumnHeader
                   label="Jornada"
                   direction={sortKey === 'round' ? sortDirection : null}
                   onClick={() => handleSort('round')}
                 />
               </th>
-              <th scope="col" className="px-3 py-2 font-medium">
+              <th scope="col" className="bg-slate-900 px-3 py-2 font-medium">
                 <SortableColumnHeader
                   label="Sede"
                   direction={sortKey === 'venue' ? sortDirection : null}
                   onClick={() => handleSort('venue')}
                 />
               </th>
-              <th scope="col" className="w-0 whitespace-nowrap px-3 py-2 font-medium">
+              <th scope="col" className="w-0 whitespace-nowrap bg-slate-900 px-3 py-2 font-medium">
                 <SortableColumnHeader
                   label="Modificado"
                   direction={sortKey === 'updatedAt' ? sortDirection : null}
                   onClick={() => handleSort('updatedAt')}
                 />
               </th>
-              <th scope="col" className="w-0 whitespace-nowrap px-3 py-2 text-center font-medium">
+              <th scope="col" className="w-0 whitespace-nowrap bg-slate-900 px-3 py-2 text-center font-medium">
                 <span className="sr-only">Eliminar</span>
               </th>
             </tr>
@@ -440,7 +487,7 @@ export function EditableMatchesTable({
                       onActivate={() => activateCell(match.id, 'date')}
                       display={
                         <span>
-                          {formatDateTimeShort(match.date)}
+                          {formatDateTimeShort(datetimeLocalToIso(draft.date) ?? match.date)}
                           {isLocalMatch(match) && (
                             <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-200">
                               local
@@ -463,7 +510,7 @@ export function EditableMatchesTable({
                     <EditableCell
                       isActive={activeCell?.matchId === match.id && activeCell.field === 'status'}
                       onActivate={() => activateCell(match.id, 'status')}
-                      display={match.status ?? '—'}
+                      display={draft.status.trim() || '—'}
                     >
                       <select
                         aria-label={`Estado de ${labelBase}`}
@@ -563,7 +610,7 @@ export function EditableMatchesTable({
                     <EditableCell
                       isActive={activeCell?.matchId === match.id && activeCell.field === 'round'}
                       onActivate={() => activateCell(match.id, 'round')}
-                      display={match.round ?? '—'}
+                      display={draft.round.trim() || '—'}
                     >
                       <input
                         type="text"
@@ -579,7 +626,7 @@ export function EditableMatchesTable({
                     <EditableCell
                       isActive={activeCell?.matchId === match.id && activeCell.field === 'venue'}
                       onActivate={() => activateCell(match.id, 'venue')}
-                      display={match.venue ?? '—'}
+                      display={draft.venue.trim() || '—'}
                     >
                       <input
                         type="text"
@@ -615,7 +662,9 @@ export function EditableMatchesTable({
         </table>
       </div>
 
-      <p className="text-xs text-slate-500">Haz clic en una celda para editarla. Los cambios se guardan con el botón superior.</p>
+      <p className="shrink-0 text-xs text-slate-500">
+        Haz clic en una celda para editarla. Los cambios se guardan con el botón superior.
+      </p>
     </div>
   );
 }

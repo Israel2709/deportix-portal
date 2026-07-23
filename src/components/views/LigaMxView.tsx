@@ -26,8 +26,14 @@ export function LigaMxView({ initialTab = 'contenido' }: { initialTab?: LigaMxTa
     [router],
   );
 
+  const isCalendar = tab === 'calendario';
+
   return (
-    <div className="space-y-8">
+    <div
+      className={
+        isCalendar ? 'flex h-full min-h-0 flex-col gap-4' : 'space-y-8'
+      }
+    >
       {tab === 'contenido' && (
         <section>
           <h1 className="text-2xl font-bold text-slate-50">Liga MX</h1>
@@ -37,7 +43,11 @@ export function LigaMxView({ initialTab = 'contenido' }: { initialTab?: LigaMxTa
         </section>
       )}
 
-      <div className="flex gap-2 overflow-x-auto border-b border-slate-800 pb-1">
+      <div
+        className={`flex gap-2 overflow-x-auto border-b border-slate-800 pb-1 ${
+          isCalendar ? 'shrink-0' : ''
+        }`}
+      >
         <button
           type="button"
           onClick={() => selectTab('contenido')}
@@ -60,6 +70,7 @@ export function LigaMxView({ initialTab = 'contenido' }: { initialTab?: LigaMxTa
         <LeagueDetail
           league="262"
           title="Liga MX"
+          fillHeight
           intro="La máxima categoría de México. La temporada disponible, equipos, calendario y clasificación que aparecen abajo provienen directamente de la API — solo se muestra lo que está realmente cargado."
         />
       )}

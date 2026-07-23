@@ -21,6 +21,8 @@ import {
   useAmericanFootballSeasonsQuery,
   useAmericanFootballTeamsQuery,
 } from '@/lib/query/american-football/hooks';
+import { queryKeys } from '@/lib/query/keys';
+import type { AmericanFootballGameItem } from '@/lib/american-football-bff-types';
 
 export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string }) {
   const queryClient = useQueryClient();
@@ -57,6 +59,7 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
     }
 
     try {
+      let gamesSnapshot = gamesRes.games;
       for (const [matchId, patch] of Object.entries(edits)) {
         await patchAmericanFootballGameInCache(
           queryClient,
@@ -64,10 +67,20 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
           selectedYear,
           matchId,
           patch,
-          gamesRes.games,
+          gamesSnapshot,
           teamsRes.data,
         );
+        gamesSnapshot =
+          queryClient.getQueryData<AmericanFootballGameItem[]>(
+            queryKeys.af.games(leagueId, selectedYear),
+          ) ?? gamesSnapshot;
       }
+
+      await queryClient.refetchQueries({
+        queryKey: queryKeys.af.games(leagueId, selectedYear),
+        type: 'active',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['af'] });
       return null;
     } catch (err) {
       if (err instanceof ApiClientError) return err.message;
@@ -82,6 +95,11 @@ export function AmericanFootballLeagueBrowse({ leagueId }: { leagueId: string })
 
     try {
       await deleteAmericanFootballGameFromCache(queryClient, leagueId, selectedYear, matchId);
+      await queryClient.refetchQueries({
+        queryKey: queryKeys.af.games(leagueId, selectedYear),
+        type: 'active',
+      });
+      await queryClient.invalidateQueries({ queryKey: ['af'] });
       return null;
     } catch (err) {
       if (err instanceof ApiClientError) return err.message;
