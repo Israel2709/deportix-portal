@@ -6,7 +6,12 @@ import type { ApiResource, DataStatus, Health } from '@/lib/types';
 import { Card, CoverageBadge, ResourceDot, SectionTitle, coverageLevel } from '@/components/ui/Ui';
 import { DataSection } from '@/components/states/States';
 import { formatDateTime } from '@/lib/format';
-import { sportPath, sportDisplayName, AMERICAN_FOOTBALL_SPORT_LABEL } from '@/lib/sports';
+import {
+  sportPath,
+  sportDisplayName,
+  AMERICAN_FOOTBALL_SPORT_LABEL,
+  FORMULA_1_SPORT_LABEL,
+} from '@/lib/sports';
 
 export function HomeView() {
   const status = useApi<ApiResource<DataStatus>>('/v1/data-status');
@@ -31,6 +36,9 @@ export function HomeView() {
           </Link>
           <Link href="/american-football" className="rounded-md bg-slate-800 px-3 py-1.5 text-slate-200 hover:bg-slate-700">
             {AMERICAN_FOOTBALL_SPORT_LABEL}
+          </Link>
+          <Link href="/formula-1" className="rounded-md bg-slate-800 px-3 py-1.5 text-slate-200 hover:bg-slate-700">
+            {FORMULA_1_SPORT_LABEL}
           </Link>
           <Link href="/explorer" className="rounded-md bg-slate-800 px-3 py-1.5 text-slate-200 hover:bg-slate-700">
             Explorador de API

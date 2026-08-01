@@ -8,6 +8,7 @@ const NAV = [
   { href: '/', label: 'Inicio' },
   { href: '/liga-mx', label: 'Liga MX' },
   { href: '/american-football', label: 'Football americano' },
+  { href: '/formula-1', label: 'Formula 1' },
   { href: '/explorer', label: 'Explorador de API' },
 ];
 

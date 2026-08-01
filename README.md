@@ -12,6 +12,7 @@ CSS v4. It talks **only** to the public API via `NEXT_PUBLIC_API_BASE_URL` and *
   nothing hardcoded). Useful even when only partial data exists.
 - **American football (`/american-football`)** — progressive-coverage viewer: Available / Partial coverage / No data loaded yet.
   Reflects new data automatically, no code changes.
+- **Formula 1 (`/formula-1`)** — BFF-backed viewer (`/formula-1/*`): calendario, clasificaciones y carga de datos.
 - **API Explorer (`/explorer`)** — run requests against the API's **defined** endpoints only (not an
   arbitrary URL console): status, timing, non-sensitive headers, formatted JSON.
 - **`/leagues/[id]`** — generic league detail (reused by Home's featured leagues).
@@ -63,10 +64,11 @@ NEXT_PUBLIC_API_PORT=3000
 ## Documentación interna
 
 - **[American football — endpoints, contratos y shapes BFF](docs/american-football-segment.md)** — guía para cargar datos vía `/american-football/*` (POST/PATCH/DELETE). IDs canónicos UUID asignados por el servidor; referencias entre recursos usan esos UUIDs.
+- **[Formula 1 — endpoints y orden de carga BFF](docs/formula-1-segment.md)** — guía para `/formula-1/*` (competiciones, circuitos, equipos, pilotos, carreras, rankings).
 
 ## Deploy to Vercel
 
 1. New Vercel project from this directory (framework **Next.js**, auto-detected).
 2. Set `NEXT_PUBLIC_API_BASE_URL` to the deployed API URL for Preview + Production.
-3. Post-deploy: open `/`, `/liga-mx`, `/american-football`, `/explorer`; confirm coverage loads and the Explorer
+3. Post-deploy: open `/`, `/liga-mx`, `/american-football`, `/formula-1`, `/explorer`; confirm coverage loads and the Explorer
    can call the API (the API allows CORS for `/v1` reads).

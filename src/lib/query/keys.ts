@@ -2,6 +2,7 @@
  * Query key factories. Keys are the single source of truth for cache identity and invalidation.
  *
  * Liga MX uses the public /v1 API. American Football uses the BFF under /american-football/*.
+ * Formula 1 uses the BFF under /formula-1/*.
  */
 
 export const queryKeys = {
@@ -27,5 +28,18 @@ export const queryKeys = {
     standings: (leagueId: string, season: number | string) =>
       ['af', 'standings', leagueId, season] as const,
     timezones: () => ['af', 'timezones'] as const,
+  },
+
+  f1: {
+    seasons: () => ['f1', 'seasons'] as const,
+    competitions: (query: Record<string, unknown> = {}) => ['f1', 'competitions', query] as const,
+    circuits: (query: Record<string, unknown> = {}) => ['f1', 'circuits', query] as const,
+    teams: (query: Record<string, unknown> = {}) => ['f1', 'teams', query] as const,
+    drivers: (query: Record<string, unknown> = {}) => ['f1', 'drivers', query] as const,
+    races: (query: Record<string, unknown> = {}) => ['f1', 'races', query] as const,
+    race: (raceId: string) => ['f1', 'race', raceId] as const,
+    driverRankings: (season: number | string) => ['f1', 'rankings', 'drivers', season] as const,
+    teamRankings: (season: number | string) => ['f1', 'rankings', 'teams', season] as const,
+    raceRankings: (raceId: string) => ['f1', 'rankings', 'races', raceId] as const,
   },
 };
