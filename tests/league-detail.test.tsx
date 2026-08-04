@@ -37,10 +37,6 @@ describe('LeagueDetail — partial coverage (Liga MX)', () => {
     expect(await screen.findByRole('heading', { name: 'Liga MX' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Temporadas' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /2025/i })).toHaveAttribute('aria-current', 'true');
-    expect(screen.getByRole('heading', { name: 'Temporada 2025' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Apertura' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Clausura' })).toBeInTheDocument();
-    expect(await screen.findByText('No hay clasificación disponible')).toBeInTheDocument();
     expect(await screen.findByText('No hay partidos disponibles')).toBeInTheDocument();
     expect(await screen.findByText('No hay equipos disponibles')).toBeInTheDocument();
   });
@@ -60,7 +56,7 @@ describe('LeagueDetail — partial coverage (Liga MX)', () => {
     fireEvent.click(screen.getByRole('button', { name: /^2024$/i }));
 
     expect(screen.getByRole('button', { name: /^2024$/i })).toHaveAttribute('aria-current', 'true');
-    expect(screen.getByRole('heading', { name: 'Temporada 2024' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /2025/i })).not.toHaveAttribute('aria-current');
   });
 
   it('shows a top-level error when the league is not found', async () => {

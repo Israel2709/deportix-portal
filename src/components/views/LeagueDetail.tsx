@@ -6,11 +6,9 @@ import {
   useLeagueMatchesQuery,
   useLeagueQuery,
   useLeagueSeasonsQuery,
-  useLeagueStandingsQuery,
   useLeagueTeamsQuery,
 } from '@/lib/query/hooks/league';
-import type { Match, Standing, Team } from '@/lib/types';
-import { DataTable, type Column } from '@/components/ui/DataTable';
+import type { Match, Team } from '@/lib/types';
 import { SectionTitle } from '@/components/ui/Ui';
 import { DataSection, ErrorState, LoadingState } from '@/components/states/States';
 import { formatDateTime } from '@/lib/format';
@@ -22,8 +20,6 @@ import { useTeamOverrides } from '@/lib/use-team-overrides';
 import { EditableMatchesTable } from '@/components/views/EditableMatchesTable';
 import { TeamMiniCard } from '@/components/teams/TeamMiniCard';
 import { LeagueSeasonSidebar } from '@/components/layout/LeagueSeasonSidebar';
-import { LigaMxSeasonSection } from '@/components/views/LigaMxSeasonSection';
-import { LIGA_MX_LEAGUE_ID } from '@/lib/liga-mx';
 import { consumeCreatedMatch } from '@/lib/pending-created-match';
 import { pickDefaultSeason } from '@/lib/seasons';
 import { useQueryClient } from '@tanstack/react-query';
@@ -45,7 +41,6 @@ export function LeagueDetail({
   /** Constrain layout to the parent height and scroll the matches table body. */
   fillHeight?: boolean;
 }) {
-  const isLigaMx = leagueId === LIGA_MX_LEAGUE_ID;
   const leagueRes = useLeagueQuery(leagueId);
   const seasonsRes = useLeagueSeasonsQuery(leagueId);
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
@@ -66,7 +61,6 @@ export function LeagueDetail({
   const selectedYear = selectedSeason?.year ?? null;
 
   const teamsRes = useLeagueTeamsQuery(leagueId);
-  const standingsRes = useLeagueStandingsQuery(leagueId, selectedYear);
   const matchesRes = useLeagueMatchesQuery(leagueId, selectedYear, selectedSeason?.id ?? null);
   const patchMatchMutation = usePatchMatchMutation(leagueId, selectedYear ?? 0);
   const deleteMatchMutation = useDeleteMatchMutation(leagueId, selectedYear ?? 0);
@@ -90,50 +84,6 @@ export function LeagueDetail({
   const { overrides: teamOverrides } = useTeamOverrides();
   const teamsWithOverrides = teamsRes.data;
   const sortedMatches = matchesRes.data;
-
-  const standingColumns: Column<Standing>[] = [
-    {
-      key: 'team',
-      header: 'Equipo',
-      render: (r) => r.teamName ?? r.teamId ?? '—',
-      sortValue: (r) => r.teamName ?? r.teamId,
-    },
-    {
-      key: 'pj',
-      header: 'PJ',
-      render: (r) => r.played ?? '—',
-      className: 'text-right',
-      sortValue: (r) => r.played,
-    },
-    {
-      key: 'w',
-      header: 'G',
-      render: (r) => r.wins ?? '—',
-      className: 'text-right',
-      sortValue: (r) => r.wins,
-    },
-    {
-      key: 'dt',
-      header: 'E',
-      render: (r) => r.draws ?? r.ties ?? '—',
-      className: 'text-right',
-      sortValue: (r) => r.draws ?? r.ties,
-    },
-    {
-      key: 'l',
-      header: 'P',
-      render: (r) => r.losses ?? '—',
-      className: 'text-right',
-      sortValue: (r) => r.losses,
-    },
-    {
-      key: 'pts',
-      header: 'Pts',
-      render: (r) => r.points ?? '—',
-      className: 'text-right font-semibold',
-      sortValue: (r) => r.points,
-    },
-  ];
 
   async function handleSaveMatchEdits(
     edits: Record<string, MatchEditPatch>,
@@ -215,28 +165,6 @@ export function LeagueDetail({
 
   if (leagueRes.loading) return <LoadingState label="Cargando liga…" />;
   if (leagueRes.error) return <ErrorState message={leagueRes.error} onRetry={leagueRes.reload} />;
-
-  const standingsSection = (
-    <section>
-      <SectionTitle>Clasificación</SectionTitle>
-      <DataSection
-        loading={standingsRes.loading && standingsRes.data.length === 0}
-        error={standingsRes.error}
-        isEmpty={standingsRes.data.length === 0}
-        onRetry={standingsRes.reload}
-        emptyTitle="No hay clasificación disponible"
-        emptyHint="La clasificación de la temporada seleccionada aún no se ha cargado."
-      >
-        <DataTable
-          columns={standingColumns}
-          rows={standingsRes.data}
-          rowKey={(r, i) => r.teamId ?? String(i)}
-          caption="Clasificación de la liga"
-          countLabels={{ singular: 'equipo', plural: 'equipos' }}
-        />
-      </DataSection>
-    </section>
-  );
 
   return (
     <div
@@ -354,19 +282,6 @@ export function LeagueDetail({
             </section>
           )}
         </div>
-
-        <aside
-          className={
-            fillHeight
-              ? 'flex w-full shrink-0 flex-col gap-6 overflow-y-auto lg:w-72 lg:max-h-full xl:w-80'
-              : 'w-full shrink-0 space-y-8 lg:w-72 xl:w-80'
-          }
-        >
-          {isLigaMx && selectedYear !== null && (
-            <LigaMxSeasonSection year={selectedYear} matches={sortedMatches} />
-          )}
-          {standingsSection}
-        </aside>
       </div>
     </div>
   );
