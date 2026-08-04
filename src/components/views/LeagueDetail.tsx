@@ -288,21 +288,6 @@ export function LeagueDetail({
               : 'min-w-0 flex-1 space-y-8'
           }
         >
-          {isLigaMx && selectedYear !== null ? (
-            <div
-              className={`grid gap-6 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)] lg:items-start ${
-                fillHeight ? 'max-h-56 shrink-0 overflow-y-auto' : ''
-              }`}
-            >
-              <LigaMxSeasonSection year={selectedYear} matches={sortedMatches} />
-              {standingsSection}
-            </div>
-          ) : (
-            <div className={fillHeight ? 'max-h-56 shrink-0 overflow-y-auto' : undefined}>
-              {standingsSection}
-            </div>
-          )}
-
           <section
             className={
               fillHeight ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : undefined
@@ -369,6 +354,19 @@ export function LeagueDetail({
             </section>
           )}
         </div>
+
+        <aside
+          className={
+            fillHeight
+              ? 'flex w-full shrink-0 flex-col gap-6 overflow-y-auto lg:w-72 lg:max-h-full xl:w-80'
+              : 'w-full shrink-0 space-y-8 lg:w-72 xl:w-80'
+          }
+        >
+          {isLigaMx && selectedYear !== null && (
+            <LigaMxSeasonSection year={selectedYear} matches={sortedMatches} />
+          )}
+          {standingsSection}
+        </aside>
       </div>
     </div>
   );
