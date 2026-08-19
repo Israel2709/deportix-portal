@@ -31,7 +31,7 @@ F1 **no** usa `/v1/leagues/.../teams|matches|standings` (`genericEndpointsSuppor
 | GET/POST/PATCH/DELETE | `/formula-1/teams` | Constructores |
 | GET/POST/PATCH/DELETE | `/formula-1/drivers` | Filter `team` |
 | GET/POST/PATCH/DELETE | `/formula-1/races` | List requiere `season` (salvo `id`) |
-| GET | `/formula-1/races/{raceId}` | Detalle |
+| GET/PATCH/DELETE | `/formula-1/races/{raceId}` | Detalle y mutaciones por path id (preferido) |
 | GET/POST/PATCH/DELETE | `/formula-1/rankings/drivers` | GET requiere `season` |
 | GET/POST/PATCH/DELETE | `/formula-1/rankings/teams` | GET requiere `season` |
 | GET/POST/PATCH/DELETE | `/formula-1/rankings/races` | GET requiere `race` |
@@ -45,7 +45,21 @@ F1 **no** usa `/v1/leagues/.../teams|matches|standings` (`genericEndpointsSuppor
 3. Carreras (`competitionId`, `circuitId`)  
 4. Rankings (pilotos / equipos / resultados)
 
-Cliente del portal: [`src/lib/formula-1-api.ts`](../src/lib/formula-1-api.ts), tipos en [`formula-1-bff-types.ts`](../src/lib/formula-1-bff-types.ts).
+Cliente del portal: [`src/lib/formula-1-api.ts`](../src/lib/formula-1-api.ts), tipos en [`formula-1-bff-types.ts`](../src/lib/formula-1-bff-types.ts).  
+Lecturas GET también disponibles en el **Explorador de API** del portal (`/explorer`).
+
+---
+
+## Exploración jerárquica (portal)
+
+Pestaña **Explorar** (`/formula-1?tab=browse`):
+
+1. **País** — sede del circuito (`circuit.country`).
+2. **Competición** — Grandes Premios con carreras en ese país.
+3. **Temporada** — años con sesiones para esa competición.
+4. **Carreras** — sesiones (Race, Qualifying, …) de la selección.
+
+El país no está en `competitions`; se infiere del circuito de cada carrera. El portal indexa client-side con `/formula-1/races?season=` y `/formula-1/circuits`.
 
 ---
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useApi } from '@/lib/use-api';
 import type { ApiResource, DataStatus } from '@/lib/types';
@@ -13,7 +13,7 @@ import { formatDateTime } from '@/lib/format';
 import { Formula1ContenidoTab } from './formula-1/Formula1ContenidoTab';
 import { Formula1DataLoader } from './formula-1/Formula1DataLoader';
 import { Formula1LoaderLink } from './formula-1/Formula1LoaderLink';
-import { Formula1SeasonsBrowse } from './formula-1/Formula1SeasonsBrowse';
+import { Formula1Browse } from './formula-1/Formula1Browse';
 
 function tabButtonClass(active: boolean, accent?: 'blue'): string {
   if (active) {
@@ -166,7 +166,9 @@ export function Formula1View({ initialTab = 'contenido' }: { initialTab?: Formul
           </section>
         </>
       ) : tab === 'browse' ? (
-        <Formula1SeasonsBrowse />
+        <Suspense fallback={null}>
+          <Formula1Browse />
+        </Suspense>
       ) : (
         <Formula1DataLoader onDataChanged={refreshCoverage} />
       )}

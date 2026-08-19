@@ -42,4 +42,33 @@ describe('API Explorer', () => {
     // No free-form URL input exists.
     expect(screen.queryByPlaceholderText(/https?:\/\//)).not.toBeInTheDocument();
   });
+
+  it('runs a Formula 1 BFF endpoint', async () => {
+    installFetch([
+      {
+        match: '/formula-1/seasons',
+        status: 200,
+        body: {
+          get: 'seasons',
+          parameters: [],
+          errors: [],
+          results: 2,
+          response: [2024, 2023],
+        },
+      },
+    ]);
+
+    render(<Explorer />);
+    fireEvent.change(screen.getByLabelText('Endpoint'), { target: { value: 'f1-seasons' } });
+    fireEvent.click(screen.getByRole('button', { name: /ejecutar solicitud/i }));
+
+    expect(await screen.findByText('200')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/2024/)).toBeInTheDocument());
+  });
+
+  it('requires raceId for GET /formula-1/races/{raceId}', () => {
+    render(<Explorer />);
+    fireEvent.change(screen.getByLabelText('Endpoint'), { target: { value: 'f1-race' } });
+    expect(screen.getByRole('button', { name: /ejecutar solicitud/i })).toBeDisabled();
+  });
 });

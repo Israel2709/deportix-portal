@@ -344,6 +344,108 @@ export const EXPLORER_ENDPOINTS: ExplorerEndpoint[] = [
     template: '/v1/teams/{teamId}',
     params: [{ name: 'teamId', in: 'path', required: true, placeholder: 'team-id' }],
   },
+  // --- BFF Formula 1 (read-only) ---
+  {
+    id: 'f1-seasons',
+    label: 'GET /formula-1/seasons',
+    method: 'GET',
+    template: '/formula-1/seasons',
+    params: [],
+  },
+  {
+    id: 'f1-competitions',
+    label: 'GET /formula-1/competitions',
+    method: 'GET',
+    template: '/formula-1/competitions',
+    params: [
+      { name: 'id', in: 'query', placeholder: 'uuid' },
+      { name: 'name', in: 'query', placeholder: 'Monaco GP' },
+      { name: 'search', in: 'query', placeholder: 'Monaco' },
+    ],
+  },
+  {
+    id: 'f1-circuits',
+    label: 'GET /formula-1/circuits',
+    method: 'GET',
+    template: '/formula-1/circuits',
+    params: [
+      { name: 'id', in: 'query', placeholder: 'uuid' },
+      { name: 'name', in: 'query', placeholder: 'Monza' },
+      { name: 'country', in: 'query', placeholder: 'Italy' },
+      { name: 'search', in: 'query', placeholder: 'Monza' },
+    ],
+  },
+  {
+    id: 'f1-teams',
+    label: 'GET /formula-1/teams',
+    method: 'GET',
+    template: '/formula-1/teams',
+    params: [
+      { name: 'id', in: 'query', placeholder: 'uuid' },
+      { name: 'name', in: 'query', placeholder: 'Red Bull Racing' },
+      { name: 'search', in: 'query', placeholder: 'Red Bull' },
+    ],
+  },
+  {
+    id: 'f1-drivers',
+    label: 'GET /formula-1/drivers',
+    method: 'GET',
+    template: '/formula-1/drivers',
+    params: [
+      { name: 'id', in: 'query', placeholder: 'uuid' },
+      { name: 'team', in: 'query', placeholder: 'uuid' },
+      { name: 'name', in: 'query', placeholder: 'Max Verstappen' },
+      { name: 'search', in: 'query', placeholder: 'Verstappen' },
+    ],
+  },
+  {
+    id: 'f1-races',
+    label: 'GET /formula-1/races',
+    method: 'GET',
+    template: '/formula-1/races',
+    params: [
+      { name: 'season', in: 'query', placeholder: '2024' },
+      { name: 'id', in: 'query', placeholder: 'uuid' },
+      { name: 'competition', in: 'query', placeholder: 'uuid' },
+      { name: 'type', in: 'query', placeholder: 'Race' },
+      { name: 'date', in: 'query', placeholder: '2024-05-26' },
+    ],
+  },
+  {
+    id: 'f1-race',
+    label: 'GET /formula-1/races/{raceId}',
+    method: 'GET',
+    template: '/formula-1/races/{raceId}',
+    params: [{ name: 'raceId', in: 'path', required: true, placeholder: 'uuid' }],
+  },
+  {
+    id: 'f1-rankings-drivers',
+    label: 'GET /formula-1/rankings/drivers',
+    method: 'GET',
+    template: '/formula-1/rankings/drivers',
+    params: [
+      { name: 'season', in: 'query', required: true, placeholder: '2024' },
+      { name: 'driver', in: 'query', placeholder: 'uuid' },
+      { name: 'team', in: 'query', placeholder: 'uuid' },
+    ],
+  },
+  {
+    id: 'f1-rankings-teams',
+    label: 'GET /formula-1/rankings/teams',
+    method: 'GET',
+    template: '/formula-1/rankings/teams',
+    params: [
+      { name: 'season', in: 'query', required: true, placeholder: '2024' },
+      { name: 'team', in: 'query', placeholder: 'uuid' },
+    ],
+  },
+  {
+    id: 'f1-rankings-races',
+    label: 'GET /formula-1/rankings/races',
+    method: 'GET',
+    template: '/formula-1/rankings/races',
+    params: [{ name: 'race', in: 'query', required: true, placeholder: 'uuid' }],
+  },
 ];
 
 /** Build a concrete path from an endpoint template + user-provided values. */

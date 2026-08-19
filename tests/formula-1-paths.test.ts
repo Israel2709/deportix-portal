@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formula1BrowsePath,
   formula1CircuitDetailPath,
   formula1CompetitionDetailPath,
   formula1DriverDetailPath,
@@ -36,5 +37,13 @@ describe('formula1 paths', () => {
     expect(formula1DriverDetailPath('d')).toBe('/formula-1/drivers/d');
     expect(formula1RaceDetailPath('e')).toBe('/formula-1/races/e');
     expect(formula1SeasonBrowsePath(2024)).toBe('/formula-1/seasons/2024');
+  });
+
+  it('builds hierarchical browse paths', () => {
+    expect(formula1BrowsePath()).toBe('/formula-1?tab=browse');
+    expect(formula1BrowsePath({ country: 'Italy' })).toBe('/formula-1?tab=browse&country=Italy');
+    expect(formula1BrowsePath({ country: 'Italy', competition: 'gp-1', season: 2024 })).toBe(
+      '/formula-1?tab=browse&country=Italy&competition=gp-1&season=2024',
+    );
   });
 });

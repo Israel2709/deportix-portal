@@ -203,6 +203,9 @@ export interface Formula1RacesQuery {
 export async function getFormula1Races(
   query: Formula1RacesQuery = {},
 ): Promise<Formula1Envelope<Formula1RaceItem>> {
+  if (query.id != null && Object.keys(query).length === 1) {
+    return formula1Request('GET', `/formula-1/races/${encodeURIComponent(query.id)}`);
+  }
   return formula1Request(
     'GET',
     `/formula-1/races${buildQuery(query as Record<string, string | number | undefined | null>)}`,
@@ -210,7 +213,7 @@ export async function getFormula1Races(
 }
 
 export async function getFormula1Race(raceId: string): Promise<Formula1Envelope<Formula1RaceItem>> {
-  return formula1Request('GET', `/formula-1/races/${encodeURIComponent(raceId)}`);
+  return getFormula1Races({ id: raceId });
 }
 
 export async function createFormula1Race(
@@ -220,14 +223,14 @@ export async function createFormula1Race(
 }
 
 export async function updateFormula1Race(
-  id: string,
+  raceId: string,
   body: Partial<Formula1RaceCreate>,
 ): Promise<Formula1Envelope<Formula1RaceItem>> {
-  return formula1Request('PATCH', `/formula-1/races${buildQuery({ id })}`, body);
+  return formula1Request('PATCH', `/formula-1/races/${encodeURIComponent(raceId)}`, body);
 }
 
-export async function deleteFormula1Race(id: string): Promise<void> {
-  await formula1Request('DELETE', `/formula-1/races${buildQuery({ id })}`);
+export async function deleteFormula1Race(raceId: string): Promise<void> {
+  await formula1Request('DELETE', `/formula-1/races/${encodeURIComponent(raceId)}`);
 }
 
 // --- Rankings ---
