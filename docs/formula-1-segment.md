@@ -5,7 +5,7 @@ Guía para integrar el segmento **Formula 1** del **Deportix Portal** con la API
 **API:** [`deportix-api`](../../deportix-api) · **Base URL:** `NEXT_PUBLIC_API_BASE_URL` (ej. `http://localhost:3000`)
 
 Referencia en la API: [`docs/formula-1-api-reference.md`](../../deportix-api/docs/formula-1-api-reference.md)  
-OpenAPI: tag **BFF Formula 1** en `{API}/docs`
+OpenAPI: tag **bff-formula-1** en `{API}/docs?tag=bff-formula-1`
 
 Sport slug en catálogo: **`f1`** · Ruta del portal: **`/formula-1`**
 
