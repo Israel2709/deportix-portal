@@ -3,6 +3,7 @@
  *
  * Liga MX uses the public /v1 API. American Football uses the BFF under /american-football/*.
  * Formula 1 uses the BFF under /formula-1/*.
+ * Tennis uses the BFF under /tennis/*.
  */
 
 export const queryKeys = {
@@ -41,5 +42,15 @@ export const queryKeys = {
     driverRankings: (season: number | string) => ['f1', 'rankings', 'drivers', season] as const,
     teamRankings: (season: number | string) => ['f1', 'rankings', 'teams', season] as const,
     raceRankings: (raceId: string) => ['f1', 'rankings', 'races', raceId] as const,
+  },
+
+  tennis: {
+    players: (query: Record<string, unknown> = {}) => ['tennis', 'players', query] as const,
+    tournaments: (query: Record<string, unknown> = {}) => ['tennis', 'tournaments', query] as const,
+    tournament: (tournamentId: string) => ['tennis', 'tournament', tournamentId] as const,
+    rounds: (query: Record<string, unknown> = {}) => ['tennis', 'rounds', query] as const,
+    entries: (query: Record<string, unknown> = {}) => ['tennis', 'entries', query] as const,
+    matches: (query: Record<string, unknown> = {}) => ['tennis', 'matches', query] as const,
+    match: (matchId: string) => ['tennis', 'match', matchId] as const,
   },
 };

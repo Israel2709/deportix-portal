@@ -139,7 +139,30 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
 
 async function readJsonResponse(res: Response): Promise<unknown> {
   const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    const trimmed = text.trimStart();
+    if (trimmed.startsWith('<')) {
+      let path = res.url;
+      try {
+        path = new URL(res.url).pathname + new URL(res.url).search;
+      } catch {
+        /* keep full url */
+      }
+      const hint =
+        res.status === 404
+          ? `El endpoint ${path} no existe en la API (404). Si acabas de agregar rutas nuevas, redeploy deportix-api.`
+          : `La API respondió HTML en lugar de JSON (${res.status}). Comprueba que deportix-api está desplegado.`;
+      throw new ApiClientError(hint, 'INVALID_RESPONSE', res.status);
+    }
+    throw new ApiClientError(
+      `Respuesta no válida de la API (${res.status}).`,
+      'INVALID_RESPONSE',
+      res.status,
+    );
+  }
 }
 
 function throwApiError(res: Response, body: unknown): never {
@@ -445,6 +468,66 @@ export const EXPLORER_ENDPOINTS: ExplorerEndpoint[] = [
     method: 'GET',
     template: '/formula-1/rankings/races',
     params: [{ name: 'race', in: 'query', required: true, placeholder: 'uuid' }],
+  },
+  // --- BFF Tennis (read-only) ---
+  {
+    id: 'tennis-players',
+    label: 'GET /tennis/players',
+    method: 'GET',
+    template: '/tennis/players',
+    params: [
+      { name: 'id', in: 'query', placeholder: 'uuid' },
+      { name: 'search', in: 'query', placeholder: 'Alcaraz' },
+      { name: 'country', in: 'query', placeholder: 'ES' },
+      { name: 'published', in: 'query', placeholder: 'true' },
+    ],
+  },
+  {
+    id: 'tennis-tournaments',
+    label: 'GET /tennis/tournaments',
+    method: 'GET',
+    template: '/tennis/tournaments',
+    params: [
+      { name: 'year', in: 'query', placeholder: '2026' },
+      { name: 'category', in: 'query', placeholder: 'grand_slam' },
+      { name: 'gender', in: 'query', placeholder: 'male' },
+      { name: 'published', in: 'query', placeholder: 'true' },
+    ],
+  },
+  {
+    id: 'tennis-tournament',
+    label: 'GET /tennis/tournaments/{tournamentId}',
+    method: 'GET',
+    template: '/tennis/tournaments/{tournamentId}',
+    params: [{ name: 'tournamentId', in: 'path', required: true, placeholder: 'uuid' }],
+  },
+  {
+    id: 'tennis-rounds',
+    label: 'GET /tennis/rounds',
+    method: 'GET',
+    template: '/tennis/rounds',
+    params: [
+      { name: 'tournament', in: 'query', placeholder: 'uuid' },
+      { name: 'published', in: 'query', placeholder: 'all' },
+    ],
+  },
+  {
+    id: 'tennis-matches',
+    label: 'GET /tennis/matches',
+    method: 'GET',
+    template: '/tennis/matches',
+    params: [
+      { name: 'tournament', in: 'query', placeholder: 'uuid' },
+      { name: 'round', in: 'query', placeholder: 'uuid' },
+      { name: 'published', in: 'query', placeholder: 'all' },
+    ],
+  },
+  {
+    id: 'tennis-match',
+    label: 'GET /tennis/matches/{matchId}',
+    method: 'GET',
+    template: '/tennis/matches/{matchId}',
+    params: [{ name: 'matchId', in: 'path', required: true, placeholder: 'uuid' }],
   },
 ];
 
