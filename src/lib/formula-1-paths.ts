@@ -50,11 +50,17 @@ export function formula1BrowsePath(params: Formula1BrowseParams = {}): string {
   return `/formula-1?${qs.toString()}`;
 }
 
+export interface ParsedFormula1BrowseParams {
+  country?: string;
+  competition?: string;
+  season?: string;
+}
+
 export function parseFormula1BrowseParams(searchParams: {
   country?: string | null;
   competition?: string | null;
   season?: string | null;
-}): Required<Formula1BrowseParams> | Formula1BrowseParams {
+}): ParsedFormula1BrowseParams {
   const country = searchParams.country?.trim() || undefined;
   const competition = searchParams.competition?.trim() || undefined;
   const season = searchParams.season?.trim() || undefined;
