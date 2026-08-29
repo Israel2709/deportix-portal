@@ -22,6 +22,7 @@ import {
   AmericanFootballSelectField,
   AmericanFootballTextField,
 } from '@/components/views/american-football/AmericanFootballFormShell';
+import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
 import { submitLabelForMode, useTennisSectionState } from './useTennisSectionState';
 
 export function TennisPlayerSection({
@@ -175,11 +176,13 @@ export function TennisPlayerSection({
             onChange={(value) => state.updateField('countryCode', value)}
             placeholder="ES"
           />
-          <AmericanFootballTextField
-            label="URL foto"
+          <ImageUrlInput
+            label="Foto"
             value={state.values.photoUrl}
             onChange={(value) => state.updateField('photoUrl', value)}
-            placeholder="https://…"
+            purpose="asset"
+            entityId={state.values.id || 'new-player'}
+            onUploadError={(msg) => state.toast.error('Error al subir', msg)}
           />
           <AmericanFootballSelectField
             label="Publicado"

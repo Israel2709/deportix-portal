@@ -25,6 +25,7 @@ import {
   AmericanFootballSelectField,
   AmericanFootballTextField,
 } from '@/components/views/american-football/AmericanFootballFormShell';
+import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
 import { submitLabelForMode, useTennisSectionState } from './useTennisSectionState';
 
 export function TennisTournamentSection({
@@ -199,10 +200,13 @@ export function TennisTournamentSection({
             onChange={(value) => state.updateField('city', value)}
             placeholder="New York"
           />
-          <AmericanFootballTextField
-            label="URL imagen"
+          <ImageUrlInput
+            label="Imagen del torneo"
             value={state.values.imageUrl}
             onChange={(value) => state.updateField('imageUrl', value)}
+            purpose="asset"
+            entityId={state.values.id || 'new-tournament'}
+            onUploadError={(msg) => state.toast.error('Error al subir', msg)}
           />
           <AmericanFootballTextField
             label="Fecha inicio"
