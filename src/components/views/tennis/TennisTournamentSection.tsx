@@ -18,6 +18,7 @@ import {
   validateTennisTournamentForm,
 } from '@/lib/tennis-forms/tournament-form';
 import { truncateCanonicalId } from '@/lib/tennis-forms/shared';
+import { formatTennisTournamentLabel } from '@/lib/tennis-display';
 import {
   AmericanFootballFieldGrid,
   AmericanFootballFormShell,
@@ -135,7 +136,7 @@ export function TennisTournamentSection({
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-800 px-3 py-2 text-sm"
               >
                 <span className="text-slate-200">
-                  {row.name} {row.year} · {row.category} · {row.gender === 'male' ? 'M' : 'F'}
+                  {formatTennisTournamentLabel(row, { publishedStyle: 'none' })}
                   {row.published ? ' · publicado' : ' · borrador'}{' '}
                   <span className="font-mono text-xs text-slate-500" title={row.id}>
                     {truncateCanonicalId(row.id)}

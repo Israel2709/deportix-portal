@@ -17,6 +17,7 @@ import {
   validateTennisRoundForm,
 } from '@/lib/tennis-forms/round-form';
 import { truncateCanonicalId } from '@/lib/tennis-forms/shared';
+import { tennisTournamentToSelectOption } from '@/lib/tennis-display';
 import {
   AmericanFootballFieldGrid,
   AmericanFootballFormShell,
@@ -41,10 +42,7 @@ export function TennisRoundSection({
   const tournamentOptions = useMemo(
     () => [
       { value: '', label: 'Selecciona un torneo' },
-      ...tournaments.map((t) => ({
-        value: t.id,
-        label: `${t.name} ${t.year}${t.published ? '' : ' (borrador)'}`,
-      })),
+      ...tournaments.map((t) => tennisTournamentToSelectOption(t)),
     ],
     [tournaments],
   );

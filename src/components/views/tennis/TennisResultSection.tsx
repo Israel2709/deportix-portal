@@ -13,6 +13,7 @@ import {
   validateTennisResultForm,
 } from '@/lib/tennis-forms/result-form';
 import { formatTennisMatchLabel } from '@/lib/tennis-forms/match-form';
+import { tennisTournamentToSelectOption } from '@/lib/tennis-display';
 import {
   AmericanFootballFieldGrid,
   AmericanFootballFormShell,
@@ -41,10 +42,7 @@ export function TennisResultSection({
   const tournamentOptions = useMemo(
     () => [
       { value: '', label: 'Selecciona un torneo' },
-      ...tournaments.map((t) => ({
-        value: t.id,
-        label: `${t.name} ${t.year}${t.published ? '' : ' (borrador)'}`,
-      })),
+      ...tournaments.map((t) => tennisTournamentToSelectOption(t)),
     ],
     [tournaments],
   );

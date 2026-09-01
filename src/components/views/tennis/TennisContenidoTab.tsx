@@ -4,14 +4,9 @@ import { Card } from '@/components/ui/Ui';
 import { DataSection } from '@/components/states/States';
 import { AmericanFootballAccordion } from '@/components/views/american-football/AmericanFootballAccordion';
 import { truncateCanonicalId } from '@/lib/tennis-forms/shared';
+import { formatTennisTournamentLabel } from '@/lib/tennis-display';
 import { useTennisContenidoQuery } from '@/lib/query/tennis/hooks';
 import { TennisLoaderLink } from './TennisLoaderLink';
-
-const CATEGORY_LABELS: Record<string, string> = {
-  grand_slam: 'Grand Slam',
-  atp_1000: 'ATP 1000',
-  wta_1000: 'WTA 1000',
-};
 
 export function TennisContenidoTab() {
   const data = useTennisContenidoQuery();
@@ -47,8 +42,7 @@ export function TennisContenidoTab() {
                   <Card key={item.id} className="space-y-1">
                     <p className="font-medium text-slate-100">{item.name}</p>
                     <p className="text-xs text-slate-400">
-                      {item.year} · {CATEGORY_LABELS[item.category] ?? item.category} ·{' '}
-                      {item.gender === 'male' ? 'Masculino' : 'Femenino'}
+                      {formatTennisTournamentLabel(item, { publishedStyle: 'none' })}
                     </p>
                     <p className="text-xs text-slate-500">
                       {item.startDate} — {item.endDate} · {item.status}

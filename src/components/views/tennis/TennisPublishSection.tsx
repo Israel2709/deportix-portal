@@ -11,6 +11,7 @@ import {
 import type { TennisMatchItem, TennisRoundItem, TennisTournamentItem } from '@/lib/tennis-bff-types';
 import { truncateCanonicalId } from '@/lib/tennis-forms/shared';
 import { formatTennisMatchLabel } from '@/lib/tennis-forms/match-form';
+import { tennisTournamentToSelectOption } from '@/lib/tennis-display';
 import { Card } from '@/components/ui/Ui';
 import {
   AmericanFootballFieldGrid,
@@ -44,10 +45,7 @@ export function TennisPublishSection({
   const tournamentOptions = useMemo(
     () => [
       { value: '', label: 'Selecciona un torneo' },
-      ...tournaments.map((t) => ({
-        value: t.id,
-        label: `${t.name} ${t.year}${t.published ? ' · publicado' : ' · borrador'}`,
-      })),
+      ...tournaments.map((t) => tennisTournamentToSelectOption(t, { publishedStyle: 'dot' })),
     ],
     [tournaments],
   );
