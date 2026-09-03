@@ -87,17 +87,36 @@ describe('buildTennisBracketColumns', () => {
     }),
   ];
 
-  it('builds columns ordered by round with geometric spacing', () => {
+  it('builds one linear draw with height fixed by the opening round', () => {
     const model = buildTennisBracketColumns(rounds, matches);
     expect(model.columns).toHaveLength(3);
-    expect(model.columns[0]!.slots).toHaveLength(4);
-    expect(model.columns[1]!.slots).toHaveLength(2);
-    expect(model.columns[2]!.slots).toHaveLength(1);
+    expect(model.totalHeightPx).toBe(4 * TENNIS_BRACKET_SLOT_UNIT_PX);
     expect(model.columns[0]!.slotUnitPx).toBe(TENNIS_BRACKET_SLOT_UNIT_PX);
     expect(model.columns[1]!.slotUnitPx).toBe(TENNIS_BRACKET_SLOT_UNIT_PX * 2);
     expect(model.columns[2]!.slotUnitPx).toBe(TENNIS_BRACKET_SLOT_UNIT_PX * 4);
-    expect(model.columns[0]!.slots[1]!.offsetTopPx).toBe(TENNIS_BRACKET_SLOT_UNIT_PX);
     expect(model.columns[1]!.slots[1]!.offsetTopPx).toBe(TENNIS_BRACKET_SLOT_UNIT_PX * 2);
+    expect(model.hasIrregularProgression).toBe(false);
+  });
+
+  it('does not stretch later rounds when match counts do not halve', () => {
+    const irregular = [
+      match({ id: 'a1', roundNumber: 1, bracketPosition: 1 }),
+      match({ id: 'a2', roundNumber: 1, bracketPosition: 2 }),
+      match({ id: 'a3', roundNumber: 1, bracketPosition: 3 }),
+      match({ id: 'a4', roundNumber: 1, bracketPosition: 4 }),
+      // Same size as R1 — previously caused a "second bracket" below via 2^columnIndex.
+      match({ id: 'b1', roundNumber: 2, bracketPosition: 1 }),
+      match({ id: 'b2', roundNumber: 2, bracketPosition: 2 }),
+      match({ id: 'b3', roundNumber: 2, bracketPosition: 3 }),
+      match({ id: 'b4', roundNumber: 2, bracketPosition: 4 }),
+    ];
+    const model = buildTennisBracketColumns(rounds.slice(0, 2), irregular);
+    expect(model.totalHeightPx).toBe(4 * TENNIS_BRACKET_SLOT_UNIT_PX);
+    expect(model.columns[1]!.slotUnitPx).toBe(TENNIS_BRACKET_SLOT_UNIT_PX);
+    expect(model.columns[1]!.slots[3]!.offsetTopPx + model.columns[1]!.slotUnitPx).toBe(
+      model.totalHeightPx,
+    );
+    expect(model.hasIrregularProgression).toBe(true);
   });
 
   it('resolves champion from the final match result', () => {

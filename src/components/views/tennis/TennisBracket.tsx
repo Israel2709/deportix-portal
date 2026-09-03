@@ -57,6 +57,11 @@ function MatchSlot({ match }: { match: TennisMatchItem }) {
   );
 }
 
+function shouldUsePairConnectors(currentCount: number, nextCount: number): boolean {
+  if (currentCount < 2 || nextCount < 1) return false;
+  return nextCount === Math.ceil(currentCount / 2);
+}
+
 export function TennisBracket({
   rounds,
   matches,
@@ -75,6 +80,11 @@ export function TennisBracket({
     );
   }
 
+  const finalColumn = model.columns[model.columns.length - 1];
+  const finalSlot =
+    finalColumn?.slots.find((slot) => slot.match.id === model.finalMatch?.id) ??
+    finalColumn?.slots[0];
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -84,97 +94,126 @@ export function TennisBracket({
         </p>
       </div>
 
+      {model.hasIrregularProgression && (
+        <p className="rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-200/90">
+          Algunas rondas no reducen a la mitad los partidos respecto a la anterior. En un Main Draw
+          lineal cada ronda debe tener la mitad de enfrentamientos (ganadores de la ronda previa).
+        </p>
+      )}
+
       <div className="overflow-x-auto rounded-md border border-slate-800 bg-slate-950/40 p-4">
-        <div className="flex items-start gap-0" style={{ minHeight: model.totalHeightPx }}>
-          {model.columns.map((column, columnIndex) => (
-            <div key={column.round?.id ?? `round-${column.roundNumber}`} className="flex shrink-0">
-              <div className="w-48">
-                <div className="mb-3 h-8">
-                  {column.round ? (
-                    <Link
-                      href={tennisRoundDetailPath(column.round.id)}
-                      className="block truncate text-xs font-medium uppercase tracking-wide text-blue-400 hover:underline"
-                    >
-                      {column.roundName}
-                    </Link>
-                  ) : (
-                    <p className="truncate text-xs font-medium uppercase tracking-wide text-slate-500">
-                      {column.roundName}
-                    </p>
-                  )}
-                </div>
+        <div className="flex items-start gap-0" style={{ minHeight: model.totalHeightPx + 32 }}>
+          {model.columns.map((column, columnIndex) => {
+            const next = model.columns[columnIndex + 1];
+            const pairMode = next
+              ? shouldUsePairConnectors(column.slots.length, next.slots.length)
+              : false;
 
-                <div className="relative" style={{ height: model.totalHeightPx }}>
-                  {column.slots.map((slot) => (
-                    <div
-                      key={slot.match.id}
-                      className="absolute left-0 flex items-center"
-                      style={{
-                        top: slot.offsetTopPx,
-                        height: column.slotUnitPx,
-                      }}
-                    >
-                      <MatchSlot match={slot.match} />
-                    </div>
-                  ))}
-                </div>
-              </div>
+            return (
+              <div key={column.round?.id ?? `round-${column.roundNumber}`} className="flex shrink-0">
+                <div className="w-48">
+                  <div className="mb-3 h-8">
+                    {column.round ? (
+                      <Link
+                        href={tennisRoundDetailPath(column.round.id)}
+                        className="block truncate text-xs font-medium uppercase tracking-wide text-blue-400 hover:underline"
+                      >
+                        {column.roundName}
+                        <span className="ml-1 font-normal text-slate-600">
+                          ({column.slots.length})
+                        </span>
+                      </Link>
+                    ) : (
+                      <p className="truncate text-xs font-medium uppercase tracking-wide text-slate-500">
+                        {column.roundName} ({column.slots.length})
+                      </p>
+                    )}
+                  </div>
 
-              {columnIndex < model.columns.length - 1 && (
-                <div
-                  className="relative w-8 shrink-0"
-                  style={{ marginTop: 32, height: model.totalHeightPx }}
-                  aria-hidden
-                >
-                  {column.slots.map((slot) => {
-                    const midY = slot.offsetTopPx + column.slotUnitPx / 2;
-                    const isTopOfPair = slot.index % 2 === 0;
-                    const pairPartner = column.slots[slot.index + (isTopOfPair ? 1 : -1)];
-                    const partnerMid = pairPartner
-                      ? pairPartner.offsetTopPx + column.slotUnitPx / 2
-                      : midY;
-                    const joinY = (midY + partnerMid) / 2;
-
-                    return (
-                      <div key={`wire-${slot.match.id}`}>
-                        <div
-                          className="absolute right-0 w-4 border-t border-slate-600"
-                          style={{ top: midY, left: 0 }}
-                        />
-                        {isTopOfPair && pairPartner && (
-                          <div
-                            className="absolute left-4 w-px border-l border-slate-600"
-                            style={{
-                              top: Math.min(midY, partnerMid),
-                              height: Math.abs(partnerMid - midY),
-                            }}
-                          />
-                        )}
-                        {isTopOfPair && (
-                          <div
-                            className="absolute left-4 w-4 border-t border-slate-600"
-                            style={{ top: joinY }}
-                          />
-                        )}
+                  <div className="relative" style={{ height: model.totalHeightPx }}>
+                    {column.slots.map((slot) => (
+                      <div
+                        key={slot.match.id}
+                        className="absolute left-0 flex items-center"
+                        style={{
+                          top: slot.offsetTopPx,
+                          height: column.slotUnitPx,
+                        }}
+                      >
+                        <MatchSlot match={slot.match} />
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
 
-          {(model.champion || model.finalMatch) && (
-            <div className="ml-2 w-44 shrink-0">
+                {next && (
+                  <div
+                    className="relative w-8 shrink-0"
+                    style={{ marginTop: 32, height: model.totalHeightPx }}
+                    aria-hidden
+                  >
+                    {column.slots.map((slot) => {
+                      const midY = slot.offsetTopPx + column.slotUnitPx / 2;
+
+                      if (!pairMode) {
+                        return (
+                          <div
+                            key={`wire-${slot.match.id}`}
+                            className="absolute left-0 w-8 border-t border-slate-600"
+                            style={{ top: midY }}
+                          />
+                        );
+                      }
+
+                      const isTopOfPair = slot.index % 2 === 0;
+                      const pairPartner = column.slots[slot.index + (isTopOfPair ? 1 : -1)];
+                      const partnerMid = pairPartner
+                        ? pairPartner.offsetTopPx + column.slotUnitPx / 2
+                        : midY;
+                      const joinY = (midY + partnerMid) / 2;
+
+                      return (
+                        <div key={`wire-${slot.match.id}`}>
+                          <div
+                            className="absolute left-0 w-4 border-t border-slate-600"
+                            style={{ top: midY }}
+                          />
+                          {isTopOfPair && pairPartner && (
+                            <div
+                              className="absolute left-4 w-px border-l border-slate-600"
+                              style={{
+                                top: Math.min(midY, partnerMid),
+                                height: Math.abs(partnerMid - midY),
+                              }}
+                            />
+                          )}
+                          {isTopOfPair && (
+                            <div
+                              className="absolute left-4 w-4 border-t border-slate-600"
+                              style={{ top: joinY }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {(model.champion || model.finalMatch) && finalSlot && finalColumn && (
+            <div className="relative ml-2 w-44 shrink-0" style={{ height: model.totalHeightPx + 32 }}>
               <div className="mb-3 h-8">
                 <p className="truncate text-xs font-medium uppercase tracking-wide text-slate-500">
                   Campeón
                 </p>
               </div>
               <div
-                className="flex items-center"
+                className="absolute left-0 flex items-center"
                 style={{
-                  height: model.columns[model.columns.length - 1]?.slotUnitPx ?? 88,
+                  top: 32 + finalSlot.offsetTopPx,
+                  height: finalColumn.slotUnitPx,
                 }}
               >
                 <div className="w-full rounded-md border border-amber-500/40 bg-amber-950/20 px-3 py-3 text-sm text-slate-100">

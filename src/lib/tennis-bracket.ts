@@ -4,14 +4,14 @@ import type {
   TennisRoundItem,
 } from './tennis-bff-types';
 
-/** Base vertical unit (px) for first-round match slots including gap. */
+/** Base vertical unit (px) for one first-round match row. */
 export const TENNIS_BRACKET_SLOT_UNIT_PX = 88;
 
 export interface TennisBracketSlot {
   match: TennisMatchItem;
   /** 0-based index within the round after sorting by bracketPosition. */
   index: number;
-  /** Top offset in px for geometric alignment with the next round. */
+  /** Top offset in px within the single linear draw. */
   offsetTopPx: number;
 }
 
@@ -19,10 +19,10 @@ export interface TennisBracketColumn {
   round: TennisRoundItem | null;
   roundNumber: number;
   roundName: string;
-  /** Column index starting at 0 (first round). */
+  /** Column index starting at 0 (opening round). */
   columnIndex: number;
   slots: TennisBracketSlot[];
-  /** Height of one slot cell in this column (grows by powers of 2). */
+  /** Vertical band height for one match in this column. */
   slotUnitPx: number;
 }
 
@@ -30,7 +30,10 @@ export interface TennisBracketModel {
   columns: TennisBracketColumn[];
   champion: TennisPlayerRef | null;
   finalMatch: TennisMatchItem | null;
+  /** Shared height of the whole linear Main Draw. */
   totalHeightPx: number;
+  /** True when some round does not halve vs the previous (data anomaly). */
+  hasIrregularProgression: boolean;
 }
 
 export function tennisCompetitorLabel(
@@ -56,8 +59,12 @@ export function inferNextBracketPosition(bracketPosition: number): number {
 }
 
 /**
- * Build L→R bracket columns from rounds + matches.
- * Layout uses geometric spacing so parents/children align without requiring winnerToMatchId.
+ * Build one L→R single-elimination draw.
+ *
+ * Opening round size sets the tree height. Each later round places its matches
+ * evenly in that same height (winners feed the next round: N → N/2 → … → 1).
+ * Spacing is NOT `2^columnIndex` alone — that stretched later rounds when data
+ * incorrectly kept the same match count as the previous round.
  */
 export function buildTennisBracketColumns(
   rounds: TennisRoundItem[],
@@ -83,14 +90,32 @@ export function buildTennisBracketColumns(
     ]),
   ].sort((a, b) => a - b);
 
+  const matchCounts = roundNumbers.map(
+    (roundNumber) => matchesByRound.get(roundNumber)?.length ?? 0,
+  );
+  const openingMatchCount = Math.max(1, ...matchCounts, 0);
+  const totalHeightPx = openingMatchCount * TENNIS_BRACKET_SLOT_UNIT_PX;
+
+  let hasIrregularProgression = false;
+  for (let i = 1; i < matchCounts.length; i++) {
+    const prev = matchCounts[i - 1] ?? 0;
+    const curr = matchCounts[i] ?? 0;
+    if (prev > 0 && curr > 0 && curr !== Math.ceil(prev / 2) && curr >= prev) {
+      hasIrregularProgression = true;
+      break;
+    }
+  }
+
   const columns: TennisBracketColumn[] = roundNumbers.map((roundNumber, columnIndex) => {
     const round = roundsSorted.find((item) => item.roundNumber === roundNumber) ?? null;
     const roundMatches = matchesByRound.get(roundNumber) ?? [];
-    const slotUnitPx = TENNIS_BRACKET_SLOT_UNIT_PX * 2 ** columnIndex;
+    const n = Math.max(roundMatches.length, 1);
+    const slotUnitPx = totalHeightPx / n;
     const slots: TennisBracketSlot[] = roundMatches.map((match, index) => ({
       match,
       index,
-      offsetTopPx: index * slotUnitPx,
+      // Prefer bracketPosition when it fits the column size; else fall back to index.
+      offsetTopPx: offsetForMatch(match.bracketPosition, index, n, slotUnitPx),
     }));
 
     return {
@@ -113,13 +138,25 @@ export function buildTennisBracketColumns(
 
   const champion = finalMatch ? tennisMatchWinner(finalMatch) : null;
 
-  const totalHeightPx = columns.reduce((max, column) => {
-    if (column.slots.length === 0) return max;
-    const last = column.slots[column.slots.length - 1]!;
-    return Math.max(max, last.offsetTopPx + column.slotUnitPx);
-  }, TENNIS_BRACKET_SLOT_UNIT_PX);
+  return {
+    columns,
+    champion,
+    finalMatch,
+    totalHeightPx,
+    hasIrregularProgression,
+  };
+}
 
-  return { columns, champion, finalMatch, totalHeightPx };
+function offsetForMatch(
+  bracketPosition: number,
+  index: number,
+  columnSize: number,
+  slotUnitPx: number,
+): number {
+  const pos = Number.isFinite(bracketPosition) && bracketPosition >= 1 ? bracketPosition : index + 1;
+  // Only trust bracketPosition when it lands inside this column's expected range.
+  const usePos = pos <= columnSize ? pos : index + 1;
+  return (usePos - 1) * slotUnitPx;
 }
 
 function matchRoundFallbackName(matches: TennisMatchItem[], roundNumber: number): string {
