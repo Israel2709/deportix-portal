@@ -26,7 +26,7 @@ import {
   AmericanFootballSelectField,
   AmericanFootballTextField,
 } from '@/components/views/american-football/AmericanFootballFormShell';
-import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
+import { TennisImageField } from './TennisImageField';
 import { submitLabelForMode, useTennisSectionState } from './useTennisSectionState';
 
 export function TennisTournamentSection({
@@ -201,14 +201,6 @@ export function TennisTournamentSection({
             onChange={(value) => state.updateField('city', value)}
             placeholder="New York"
           />
-          <ImageUrlInput
-            label="Imagen del torneo"
-            value={state.values.imageUrl}
-            onChange={(value) => state.updateField('imageUrl', value)}
-            purpose="asset"
-            entityId={state.values.id || 'new-tournament'}
-            onUploadError={(msg) => state.toast.error('Error al subir', msg)}
-          />
           <AmericanFootballTextField
             label="Fecha inicio"
             value={state.values.startDate}
@@ -232,6 +224,12 @@ export function TennisTournamentSection({
             value={state.values.status}
             onChange={(value) => state.updateField('status', value)}
             options={TENNIS_TOURNAMENT_STATUS_OPTIONS}
+          />
+          <TennisImageField
+            value={state.values.imageUrl}
+            onChange={(value) => state.updateField('imageUrl', value)}
+            entityId={state.values.id || 'new-tournament'}
+            onUploadError={(msg) => state.toast.error('Error al subir', msg)}
           />
         </AmericanFootballFieldGrid>
       )}

@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import {
   getTennisEntries,
+  getTennisMatch,
   getTennisMatches,
   getTennisPlayers,
+  getTennisRound,
   getTennisRounds,
   getTennisTournament,
   getTennisTournamentEntries,
@@ -68,6 +70,46 @@ export function useTennisTournamentQuery(tournamentId: string | null) {
     },
     enabled: tournamentId !== null,
     staleTime: STALE_TIME_STABLE_MS,
+  });
+  return {
+    data: result.data ?? null,
+    error: result.error?.message ?? null,
+    loading: result.isPending || (result.isFetching && result.data === undefined),
+    reload: () => {
+      void result.refetch();
+    },
+  };
+}
+
+export function useTennisRoundQuery(roundId: string | null) {
+  const result = useQuery({
+    queryKey: roundId ? queryKeys.tennis.round(roundId) : ['tennis', 'round', 'idle'],
+    queryFn: async () => {
+      const envelope = await getTennisRound(roundId!);
+      return envelope.response[0] ?? null;
+    },
+    enabled: roundId !== null,
+    staleTime: STALE_TIME_STABLE_MS,
+  });
+  return {
+    data: result.data ?? null,
+    error: result.error?.message ?? null,
+    loading: result.isPending || (result.isFetching && result.data === undefined),
+    reload: () => {
+      void result.refetch();
+    },
+  };
+}
+
+export function useTennisMatchQuery(matchId: string | null) {
+  const result = useQuery({
+    queryKey: matchId ? queryKeys.tennis.match(matchId) : ['tennis', 'match', 'idle'],
+    queryFn: async () => {
+      const envelope = await getTennisMatch(matchId!);
+      return envelope.response[0] ?? null;
+    },
+    enabled: matchId !== null,
+    staleTime: STALE_TIME_VOLATILE_MS,
   });
   return {
     data: result.data ?? null,

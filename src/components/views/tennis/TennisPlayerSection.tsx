@@ -22,7 +22,7 @@ import {
   AmericanFootballSelectField,
   AmericanFootballTextField,
 } from '@/components/views/american-football/AmericanFootballFormShell';
-import { ImageUrlInput } from '@/components/ui/ImageUrlInput';
+import { TennisImageField } from './TennisImageField';
 import { submitLabelForMode, useTennisSectionState } from './useTennisSectionState';
 
 export function TennisPlayerSection({
@@ -176,14 +176,6 @@ export function TennisPlayerSection({
             onChange={(value) => state.updateField('countryCode', value)}
             placeholder="ES"
           />
-          <ImageUrlInput
-            label="Foto"
-            value={state.values.photoUrl}
-            onChange={(value) => state.updateField('photoUrl', value)}
-            purpose="asset"
-            entityId={state.values.id || 'new-player'}
-            onUploadError={(msg) => state.toast.error('Error al subir', msg)}
-          />
           <AmericanFootballSelectField
             label="Publicado"
             value={state.values.published}
@@ -192,6 +184,13 @@ export function TennisPlayerSection({
               { value: 'false', label: 'Borrador' },
               { value: 'true', label: 'Publicado' },
             ]}
+          />
+          <TennisImageField
+            urlLabel="URL foto"
+            value={state.values.photoUrl}
+            onChange={(value) => state.updateField('photoUrl', value)}
+            entityId={state.values.id || 'new-player'}
+            onUploadError={(msg) => state.toast.error('Error al subir', msg)}
           />
         </AmericanFootballFieldGrid>
       )}

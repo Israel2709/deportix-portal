@@ -49,6 +49,7 @@ export const queryKeys = {
     tournaments: (query: Record<string, unknown> = {}) => ['tennis', 'tournaments', query] as const,
     tournament: (tournamentId: string) => ['tennis', 'tournament', tournamentId] as const,
     rounds: (query: Record<string, unknown> = {}) => ['tennis', 'rounds', query] as const,
+    round: (roundId: string) => ['tennis', 'round', roundId] as const,
     entries: (query: Record<string, unknown> = {}) => ['tennis', 'entries', query] as const,
     matches: (query: Record<string, unknown> = {}) => ['tennis', 'matches', query] as const,
     match: (matchId: string) => ['tennis', 'match', matchId] as const,

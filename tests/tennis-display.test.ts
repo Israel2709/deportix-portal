@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  filterTennisTournaments,
   formatTennisTournamentLabel,
   tennisTournamentCircuitLabel,
   tennisTournamentToSelectOption,
@@ -52,5 +53,35 @@ describe('tennisTournamentToSelectOption', () => {
       value: 't-1',
       label: 'Australian Open 2027 · ATP · Grand Slam (borrador)',
     });
+  });
+});
+
+describe('filterTennisTournaments', () => {
+  const list = [
+    baseTournament,
+    {
+      ...baseTournament,
+      id: 't-2',
+      name: 'China Open',
+      gender: 'female' as const,
+      category: 'wta_1000' as const,
+      city: 'Beijing',
+      country: { code: 'CN', name: 'China' },
+      year: 2026,
+      startDate: '2026-09-28',
+      endDate: '2026-10-05',
+    },
+  ];
+
+  it('returns all when query is empty', () => {
+    expect(filterTennisTournaments(list, '  ')).toHaveLength(2);
+  });
+
+  it('matches by name, city, circuit and date', () => {
+    expect(filterTennisTournaments(list, 'china')).toHaveLength(1);
+    expect(filterTennisTournaments(list, 'beijing')).toHaveLength(1);
+    expect(filterTennisTournaments(list, 'wta')).toHaveLength(1);
+    expect(filterTennisTournaments(list, '2027-01')).toHaveLength(1);
+    expect(filterTennisTournaments(list, 'melbourne')).toHaveLength(1);
   });
 });

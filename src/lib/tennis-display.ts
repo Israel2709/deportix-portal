@@ -49,3 +49,37 @@ export function tennisTournamentToSelectOption(
     label: formatTennisTournamentLabel(tournament, options),
   };
 }
+
+/** Client-side filter for Contenido search (name, city, dates, country, category, year…). */
+export function filterTennisTournaments(
+  tournaments: TennisTournamentItem[],
+  query: string,
+): TennisTournamentItem[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return tournaments;
+
+  return tournaments.filter((item) => {
+    const circuit = tennisTournamentCircuitLabel(item.gender);
+    const category = TENNIS_TOURNAMENT_CATEGORY_LABELS[item.category] ?? item.category;
+    const haystack = [
+      item.name,
+      item.shortName,
+      item.city,
+      item.country.code,
+      item.country.name,
+      item.startDate,
+      item.endDate,
+      String(item.year),
+      item.status,
+      item.category,
+      category,
+      item.gender,
+      circuit,
+      item.published ? 'publicado' : 'borrador',
+    ]
+      .filter(Boolean)
+      .map((part) => String(part).toLowerCase());
+
+    return haystack.some((part) => part.includes(needle));
+  });
+}
