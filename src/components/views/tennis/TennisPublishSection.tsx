@@ -177,6 +177,12 @@ export function TennisPublishSection({
             {draftRounds > 0 ? ` (${draftRounds} borrador)` : ''} · {matches.length} partido(s)
             {draftMatches > 0 ? ` (${draftMatches} borrador)` : ''}
           </p>
+          {!loading && (rounds.length === 0 || matches.length === 0) && (
+            <p className="mt-2 text-amber-400">
+              No se puede publicar todavía: el Main Draw está incompleto. Crea rondas, entradas y
+              partidos (pasos 3–5) para este torneo y vuelve a intentar.
+            </p>
+          )}
           {loading && <p className="mt-2 text-xs text-slate-500">Cargando detalle…</p>}
         </div>
       )}
@@ -184,7 +190,7 @@ export function TennisPublishSection({
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
-          disabled={publishing || !tournamentId}
+          disabled={publishing || !tournamentId || rounds.length === 0 || matches.length === 0}
           onClick={() => void handlePublishTournament()}
           className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
         >

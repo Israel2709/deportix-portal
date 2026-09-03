@@ -242,11 +242,12 @@ export async function apiDelete(path: string, body?: unknown): Promise<void> {
 }
 
 /** Typed POST that throws an ApiClientError on a non-2xx response. */
-export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   const res = await apiFetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    // JSON.stringify(undefined) is not valid JSON (the token `undefined`). Send {}.
+    body: JSON.stringify(body ?? {}),
   });
   const parsed = await readJsonResponse(res);
   if (!res.ok) throwApiError(res, parsed);
