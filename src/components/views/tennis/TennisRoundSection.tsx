@@ -134,7 +134,7 @@ export function TennisRoundSection({
     <AmericanFootballFormShell
       step={step}
       title="Rondas"
-      description="Main Draw por torneo. round_number secuencial y único dentro del torneo."
+      description="Main Draw por torneo. round_number secuencial y único dentro del torneo. Se puede publicar sin jugadores asignados."
       mode={state.mode}
       onModeChange={(mode) => {
         state.setMode(mode);
@@ -158,7 +158,8 @@ export function TennisRoundSection({
                 className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-800 px-3 py-2 text-sm"
               >
                 <span className="text-slate-200">
-                  #{row.roundNumber} {row.name} · {row.status}{' '}
+                  #{row.roundNumber} {row.name} · {row.status}
+                  {row.published ? ' · publicado' : ' · borrador'}{' '}
                   <span className="font-mono text-xs text-slate-500" title={row.id}>
                     {truncateCanonicalId(row.id)}
                   </span>

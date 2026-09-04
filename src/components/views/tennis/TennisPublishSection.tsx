@@ -6,6 +6,7 @@ import {
   getTennisTournamentRounds,
   getTennisTournaments,
   publishTennisMatch,
+  publishTennisRound,
   publishTennisTournament,
 } from '@/lib/tennis-api';
 import type { TennisMatchItem, TennisRoundItem, TennisTournamentItem } from '@/lib/tennis-bff-types';
@@ -33,6 +34,7 @@ export function TennisPublishSection({
   const [rounds, setRounds] = useState<TennisRoundItem[]>([]);
   const [matches, setMatches] = useState<TennisMatchItem[]>([]);
   const [tournamentId, setTournamentId] = useState('');
+  const [roundId, setRoundId] = useState('');
   const [matchId, setMatchId] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -50,6 +52,17 @@ export function TennisPublishSection({
     [tournaments],
   );
 
+  const roundOptions = useMemo(
+    () => [
+      { value: '', label: 'Selecciona una ronda (opcional)' },
+      ...rounds.map((r) => ({
+        value: r.id,
+        label: `#${r.roundNumber} ${r.name}${r.published ? '' : ' · borrador'}`,
+      })),
+    ],
+    [rounds],
+  );
+
   const matchOptions = useMemo(
     () => [
       { value: '', label: 'Selecciona un partido (opcional)' },
@@ -65,6 +78,8 @@ export function TennisPublishSection({
     if (!tid) {
       setRounds([]);
       setMatches([]);
+      setRoundId('');
+      setMatchId('');
       return;
     }
     setLoading(true);
@@ -100,6 +115,8 @@ export function TennisPublishSection({
   }, []);
 
   useEffect(() => {
+    setRoundId('');
+    setMatchId('');
     void reloadTournamentData(tournamentId);
   }, [tournamentId]);
 
@@ -119,6 +136,25 @@ export function TennisPublishSection({
       await reloadTournamentData(tournamentId);
     } catch (err) {
       toast.error('Error', err instanceof Error ? err.message : 'No se pudo publicar el torneo.');
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  async function handlePublishRound() {
+    if (!roundId.trim()) {
+      toast.error('Validación', 'Selecciona una ronda para publicar.');
+      return;
+    }
+    setPublishing(true);
+    try {
+      const res = await publishTennisRound(roundId);
+      toast.success('Ronda publicada', `results: ${res.results}`);
+      void queryClient.invalidateQueries({ queryKey: ['tennis'] });
+      onDataChanged?.();
+      await reloadTournamentData(tournamentId);
+    } catch (err) {
+      toast.error('Error', err instanceof Error ? err.message : 'No se pudo publicar la ronda.');
     } finally {
       setPublishing(false);
     }
@@ -152,8 +188,8 @@ export function TennisPublishSection({
         <p className="text-xs font-medium uppercase tracking-wide text-blue-400">Paso {step}</p>
         <h3 className="mt-1 text-lg font-semibold text-slate-100">Publicación</h3>
         <p className="mt-1 text-sm text-slate-400">
-          App QD solo consume información publicada. Publicar el torneo ejecuta validaciones de
-          integridad del Main Draw (rondas, entradas y partidos).
+          App QD solo consume información publicada. Puedes publicar el torneo sin rondas, y
+          publicar rondas aunque los contendientes aún no se hayan anunciado (TBD).
         </p>
       </div>
 
@@ -177,10 +213,9 @@ export function TennisPublishSection({
             {draftRounds > 0 ? ` (${draftRounds} borrador)` : ''} · {matches.length} partido(s)
             {draftMatches > 0 ? ` (${draftMatches} borrador)` : ''}
           </p>
-          {!loading && (rounds.length === 0 || matches.length === 0) && (
-            <p className="mt-2 text-amber-400">
-              No se puede publicar todavía: el Main Draw está incompleto. Crea rondas, entradas y
-              partidos (pasos 3–5) para este torneo y vuelve a intentar.
+          {!loading && rounds.length === 0 && (
+            <p className="mt-2 text-slate-400">
+              Sin rondas todavía. Puedes publicar el torneo ahora y cargar el Main Draw después.
             </p>
           )}
           {loading && <p className="mt-2 text-xs text-slate-500">Cargando detalle…</p>}
@@ -190,13 +225,36 @@ export function TennisPublishSection({
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
-          disabled={publishing || !tournamentId || rounds.length === 0 || matches.length === 0}
+          disabled={publishing || !tournamentId}
           onClick={() => void handlePublishTournament()}
           className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
         >
-          {publishing ? 'Publicando…' : 'Publicar torneo y Main Draw'}
+          {publishing ? 'Publicando…' : 'Publicar torneo'}
         </button>
       </div>
+
+      <hr className="border-slate-800" />
+
+      <p className="text-sm text-slate-400">
+        Publicar una ronda (aunque los partidos aún no tengan contendientes):
+      </p>
+      <AmericanFootballFieldGrid>
+        <AmericanFootballSelectField
+          label="Ronda"
+          value={roundId}
+          onChange={setRoundId}
+          options={roundOptions}
+          hint={!tournamentId ? 'Selecciona un torneo primero' : undefined}
+        />
+      </AmericanFootballFieldGrid>
+      <button
+        type="button"
+        disabled={publishing || !roundId}
+        onClick={() => void handlePublishRound()}
+        className="rounded-md bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-500 disabled:opacity-50"
+      >
+        Publicar ronda {roundId ? truncateCanonicalId(roundId) : ''}
+      </button>
 
       <hr className="border-slate-800" />
 

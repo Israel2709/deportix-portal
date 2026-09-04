@@ -237,6 +237,10 @@ export async function deleteTennisRoundById(roundId: string): Promise<void> {
   await tennisRequest('DELETE', `/tennis/rounds/${encodeURIComponent(roundId)}`);
 }
 
+export async function publishTennisRound(roundId: string): Promise<TennisEnvelope<TennisRoundItem>> {
+  return tennisRequest('POST', `/tennis/rounds/${encodeURIComponent(roundId)}/publish`);
+}
+
 // --- Entries ---
 
 export interface TennisEntryQuery {

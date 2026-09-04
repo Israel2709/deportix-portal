@@ -30,8 +30,9 @@ export function TennisDataLoader({ onDataChanged }: { onDataChanged?: () => void
     <div className="space-y-6">
       <Card className="border-blue-500/20 bg-blue-950/20">
         <p className="text-sm text-slate-200">
-          <strong className="text-blue-300">Orden recomendado:</strong> jugadores → torneo → rondas →
-          entradas al Main Draw → partidos (bracket completo, incluso TBD) → resultados → publicación.
+          <strong className="text-blue-300">Orden recomendado:</strong> jugadores → torneo (se
+          puede publicar sin draw) → rondas (se pueden publicar con contendientes TBD) → entradas
+          al Main Draw → partidos (bracket, incluso TBD) → resultados → publicación puntual.
           Los GET del backoffice usan <code className="text-xs">published=all</code>.
         </p>
         <p className="mt-2 text-xs text-slate-400">
