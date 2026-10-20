@@ -23,7 +23,15 @@ describe('tennis player form', () => {
   it('requires full and display name on create', () => {
     expect(
       validateTennisPlayerForm(
-        { id: '', fullName: '', displayName: '', photoUrl: '', countryCode: '', published: 'false' },
+        {
+          id: '',
+          fullName: '',
+          displayName: '',
+          photoUrl: '',
+          countryCode: '',
+          gender: '',
+          published: 'false',
+        },
         'create',
       ),
     ).toBe('El nombre completo es obligatorio.');
@@ -37,6 +45,7 @@ describe('tennis player form', () => {
         displayName: ' Alcaraz ',
         photoUrl: '',
         countryCode: 'es',
+        gender: 'male',
         published: 'true',
       }),
     ).toEqual({
@@ -44,6 +53,7 @@ describe('tennis player form', () => {
       displayName: 'Alcaraz',
       photoUrl: null,
       countryCode: 'ES',
+      gender: 'male',
       published: true,
     });
   });

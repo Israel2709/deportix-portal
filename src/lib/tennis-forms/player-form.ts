@@ -1,4 +1,4 @@
-import type { TennisPlayerCreate, TennisPlayerItem } from '../tennis-bff-types';
+import type { TennisGender, TennisPlayerCreate, TennisPlayerItem } from '../tennis-bff-types';
 import { nullableString, requireCanonicalId } from './shared';
 
 export interface TennisPlayerFormValues {
@@ -7,6 +7,7 @@ export interface TennisPlayerFormValues {
   displayName: string;
   photoUrl: string;
   countryCode: string;
+  gender: TennisGender | '';
   published: string;
 }
 
@@ -16,6 +17,7 @@ export const EMPTY_TENNIS_PLAYER_FORM: TennisPlayerFormValues = {
   displayName: '',
   photoUrl: '',
   countryCode: '',
+  gender: '',
   published: 'false',
 };
 
@@ -26,6 +28,7 @@ export function playerToFormValues(item: TennisPlayerItem): TennisPlayerFormValu
     displayName: item.displayName,
     photoUrl: item.photoUrl ?? '',
     countryCode: item.country.code,
+    gender: item.gender ?? '',
     published: item.published ? 'true' : 'false',
   };
 }
@@ -44,6 +47,9 @@ export function validateTennisPlayerForm(
   if (!values.fullName.trim()) return 'El nombre completo es obligatorio.';
   if (!values.displayName.trim()) return 'El nombre visible es obligatorio.';
   if (!values.countryCode.trim()) return 'El código de país (ISO) es obligatorio.';
+  if (values.gender !== 'male' && values.gender !== 'female') {
+    return 'El género (male/female) es obligatorio.';
+  }
   if (mode === 'edit' && requireCanonicalId(values.id, 'ID') === 'invalid') {
     return 'Selecciona un jugador de la lista para editar.';
   }
@@ -56,6 +62,7 @@ export function buildTennisPlayerBody(values: TennisPlayerFormValues): TennisPla
     displayName: values.displayName.trim(),
     photoUrl: nullableString(values.photoUrl),
     countryCode: values.countryCode.trim().toUpperCase(),
+    gender: values.gender === 'female' ? 'female' : 'male',
     published: values.published === 'true',
   };
 }

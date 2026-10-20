@@ -55,12 +55,14 @@ export interface TennisPlayerCreate {
   displayName: string;
   photoUrl?: string | null;
   countryCode: string;
+  gender: TennisGender;
   published?: boolean;
 }
 
 export interface TennisPlayerItem extends Omit<TennisPlayerCreate, 'countryCode' | 'published'> {
   id: string;
   country: TennisCountryRef;
+  gender: TennisGender | null;
   published: boolean;
   createdAt?: string | null;
   updatedAt?: string | null;

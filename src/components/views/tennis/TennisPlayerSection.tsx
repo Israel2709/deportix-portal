@@ -177,6 +177,16 @@ export function TennisPlayerSection({
             placeholder="ES"
           />
           <AmericanFootballSelectField
+            label="Género"
+            value={state.values.gender}
+            onChange={(value) => state.updateField('gender', value)}
+            options={[
+              { value: '', label: 'Seleccionar…' },
+              { value: 'male', label: 'Male (ATP)' },
+              { value: 'female', label: 'Female (WTA)' },
+            ]}
+          />
+          <AmericanFootballSelectField
             label="Publicado"
             value={state.values.published}
             onChange={(value) => state.updateField('published', value)}
